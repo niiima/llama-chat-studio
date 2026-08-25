@@ -1,148 +1,120 @@
-import { useContext } from "react";
+import { useContext, useEffect, useRef } from "react";
 import { useControls, Leva } from "leva";
 import AIContext from "../../context/AIContext";
-// import ColorfulButtonSet from "../Buttons/ColorfulButtons";
 
 export default function ChatSettingsControl() {
-  const { setAIState } = useContext(AIContext);
+  const { setAIState, activeEngine } = useContext(AIContext);
 
-  const {
-    max_tokens,
-    max_response_tokens,
-    temperature,
-    top_p,
-    frequency_penalty,
-    presence_penalty,
-  } = useControls({
-    max_tokens: {
-      step: 1,
-      value: 2048,
-      max: 4096,
-      min: 0,
-      onChange: (value) => setAIState({ max_tokens: value }),
-    },
-    max_response_tokens: {
-      step: 1,
-      value: 1024,
-      max: 3074,
-      min: 0,
-      onChange: (value) => setAIState({ max_response_tokens: value }),
-    },
-    temperature: {
-      value: 1,
-      step: 0.01,
-      max: 2,
-      min: 0,
-      onChange: (value) => setAIState({ temperature: value }),
-    },
-    top_p: {
-      value: 0,
-      step: 0.01,
-      max: 1,
-      min: 0,
-      onChange: (value) => setAIState({ top_p: value }),
-    },
-    frequency_penalty: {
-      value: 0,
-      step: 0.01,
-      max: 2,
-      min: -2,
-      onChange: (value) => setAIState({ frequency_penalty: value }),
-    },
-    presence_penalty: {
-      value: 0.0,
-      step: 0.01,
-      max: 2,
-      min: -2,
-      onChange: (value) => setAIState({ presence_penalty: value }),
-    },
-  });
+  // Keep track of the previous engine so we only reset when it actually changes
+  const prevEngineKey = useRef(activeEngine?.key);
+
+  const defaults = {
+    max_tokens: activeEngine?.maxTokens ?? 8192,
+    max_response_tokens: activeEngine?.max_response_tokens ?? 2048,
+    temperature: activeEngine?.temperature ?? 0.6,
+    top_p: activeEngine?.top_p ?? 0.95,
+    top_k: activeEngine?.top_k ?? 40,
+    frequency_penalty: activeEngine?.frequency_penalty ?? 0,
+    presence_penalty: activeEngine?.presence_penalty ?? 0,
+  };
+
+  const [values, set] = useControls(
+    () => ({
+      max_tokens: {
+        value: defaults.max_tokens,
+        min: 512,
+        max: activeEngine?.maxTokens ?? 16384,
+        step: 64,
+      },
+      max_response_tokens: {
+        value: defaults.max_response_tokens,
+        min: 128,
+        max: 8192,
+        step: 64,
+      },
+      temperature: {
+        value: defaults.temperature,
+        min: 0,
+        max: 2,
+        step: 0.01,
+      },
+      top_p: {
+        value: defaults.top_p,
+        min: 0,
+        max: 1,
+        step: 0.01,
+      },
+      top_k: {
+        value: defaults.top_k,
+        min: 0,
+        max: 100,
+        step: 1,
+      },
+      frequency_penalty: {
+        value: defaults.frequency_penalty,
+        min: -2,
+        max: 2,
+        step: 0.01,
+      },
+      presence_penalty: {
+        value: defaults.presence_penalty,
+        min: -2,
+        max: 2,
+        step: 0.01,
+      },
+    }),
+    [activeEngine?.key] // only recreate when the engine changes
+  );
+
+  // Sync to global state — but only when values actually change
+  useEffect(() => {
+    setAIState({
+      max_tokens: values.max_tokens,
+      max_response_tokens: values.max_response_tokens,
+      temperature: values.temperature,
+      top_p: values.top_p,
+      top_k: values.top_k,
+      frequency_penalty: values.frequency_penalty,
+      presence_penalty: values.presence_penalty,
+    });
+  }, [
+    values.max_tokens,
+    values.max_response_tokens,
+    values.temperature,
+    values.top_p,
+    values.top_k,
+    values.frequency_penalty,
+    values.presence_penalty,
+    // intentionally NOT including setAIState
+  ]);
+
+  // When the user switches engine, force the controls to the new defaults
+  useEffect(() => {
+    if (activeEngine?.key && activeEngine.key !== prevEngineKey.current) {
+      prevEngineKey.current = activeEngine.key;
+
+      set({
+        max_tokens: activeEngine.maxTokens ?? 8192,
+        max_response_tokens: activeEngine.max_response_tokens ?? 2048,
+        temperature: activeEngine.temperature ?? 0.6,
+        top_p: activeEngine.top_p ?? 0.95,
+        top_k: activeEngine.top_k ?? 40,
+        frequency_penalty: activeEngine.frequency_penalty ?? 0,
+        presence_penalty: activeEngine.presence_penalty ?? 0,
+      });
+    }
+  }, [activeEngine?.key, set]);
 
   return (
     <div style={{ marginTop: 2, width: "99%", marginLeft: 1 }}>
       <Leva
-        // theme={myTheme}
-        fill={"white"}
-        // color={"red"}
+        fill
         flat={false}
         oneLineLabels={true}
-        hideTitleBar={false} // default = false, hides the GUI header
-        collapsed={true} // default = false, when true the GUI is collpased
-        hidden={false}></Leva>
+        hideTitleBar={false}
+        collapsed={true}
+        hidden={false}
+      />
     </div>
-  ); //<ColorfulButtonSet items={AIstate}></ColorfulButtonSet>;
+  );
 }
-
-// import { useContext, memo } from "react";
-// import { useControls } from "leva";
-// import AIContext from "../../context/AIContext";
-// import ColorfulButtonSet from "../Buttons/ColorfulButtons";
-
-// export default function ChatSettingsControl({ aiType = "basic" }) {
-//   const { AIstate, setAIState, activeEngine } = useContext(AIContext);
-
-//   const {
-//     max_tokens,
-//     max_response_tokens,
-//     temperature,
-//     top_p,
-//     frequency_penalty,
-//     presence_penalty,
-//   } = useControls({
-//     max_tokens: {
-//       step: 1,
-//       value: 4096,
-//       max: 4096,
-//       min: 0,
-//       onChange: (value) => setAIState({ max_tokens: value }),
-//     },
-//     max_response_tokens: {
-//       step: 1,
-//       value: 2024,
-//       max: 3074,
-//       min: 0,
-//       onChange: (value) => setAIState({ max_response_tokens: value }),
-//     },
-//     temperature: {
-//       value: 1,
-//       step: 0.01,
-//       max: 2,
-//       min: 0,
-//       onChange: (value) => setAIState({ temperature: value }),
-//     },
-//     top_p: {
-//       value: 0,
-//       step: 0.01,
-//       max: 1,
-//       min: 0,
-//       onChange: (value) => setAIState({ top_p: value }),
-//     },
-//     frequency_penalty: {
-//       value: 0,
-//       step: 0.01,
-//       max: 2,
-//       min: -2,
-//       onChange: (value) => setAIState({ frequency_penalty: value }),
-//     },
-//     presence_penalty: {
-//       value: 0.0,
-//       step: 0.01,
-//       max: 2,
-//       min: -2,
-//       onChange: (value) => setAIState({ presence_penalty: value }),
-//     },
-//   });
-
-//   // console.log(max_tokens);
-
-//   setAIState(
-//     max_tokens,
-//     max_response_tokens,
-//     temperature,
-//     top_p,
-//     frequency_penalty,
-//     presence_penalty
-//   );
-
-//   return memo(<ColorfulButtonSet items={AIstate}></ColorfulButtonSet>);
-// }

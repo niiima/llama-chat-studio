@@ -31,7 +31,7 @@ export default function MyPage() {
   } = useContext(ChatContext);
 
   const { AIstate } = useContext(AIContext);
-  const [activeEngine, setActiveEngine] = useState(engines[0]);
+  const [activeEngine, setActiveEngine] = useState(engines.filter(e=>e.id==0)[0]);
 
   const [prompt, setPrompt] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
@@ -47,9 +47,9 @@ export default function MyPage() {
     const messages = [];
 
     const tokenRange =
-      AIstate.max_tokens - AIstate.max_response_tokens < 4096
+      AIstate.max_tokens - AIstate.max_response_tokens < activeEngine.maxTokens
         ? AIstate.max_tokens - AIstate.max_response_tokens
-        : 2048;
+        : 4096;
 
     let previousMessagesToken = 0;
     const chatLength = chatHistory.length - 1;
@@ -57,10 +57,10 @@ export default function MyPage() {
       for (let i = chatLength; i >= 0; i--) {
         const { prompt, completion } = chatHistory[i];
         let dialogTokens = encode(prompt).length + encode(completion).length;
-        // console.log(
-        //   `tokenRange: ${tokenRange} |
-        //    dialogTokens: ${dialogTokens} | messageTokens: ${previousMessagesToken}`
-        // );
+        console.log(
+          `tokenRange: ${tokenRange} |
+           dialogTokens: ${dialogTokens} | messageTokens: ${previousMessagesToken}`
+        );
         if (
           previousMessagesToken +
             systemPrompt.length +
@@ -86,12 +86,21 @@ export default function MyPage() {
 
       dialogs.push({ role: "user", content: e });
       // console.log(dialogs);
-      let options = {
-        engine: activeEngine.key,
+      const options = {
+        model: activeEngine.key,                    // ← use "model" (OpenAI style)
         messages: dialogs,
-        ...AIstate,
+
+        // Sampling parameters
+        temperature: AIstate.temperature ?? activeEngine.temperature ?? 0.6,
+        top_p: AIstate.top_p ?? activeEngine.top_p ?? 0.95,
+        top_k: AIstate.top_k ?? activeEngine.top_k ?? 40,
+        frequency_penalty: AIstate.frequency_penalty ?? 0,
+        presence_penalty: AIstate.presence_penalty ?? 0,
+
+        // Important: this controls how long the reply can be
+        max_tokens: AIstate.max_response_tokens ?? 2048,
       };
-      // console.log(options);
+       console.log(options);
       const response = await fetch("/api/generate-chat-completion", {
         method: "POST",
         headers: {
@@ -149,7 +158,7 @@ export default function MyPage() {
         engine: activeEngine.key,
         showMarkdown: false,
       });
-      // console.log(chatHistory);
+       console.log(chatHistory);
       setStream("");
       // if (initialGreets === "done")
       setPrompt("");

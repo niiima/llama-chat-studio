@@ -5,32 +5,28 @@ export const config = {
 };
 
 const handler = async (req) => {
-  const {
-    messages,
-    engine,
-    max_tokens,
-    temperature,
-    top_p,
-    frequency_penalty,
-    presence_penalty,
-  } = await req.json();
+  const body = await req.json();
 
-  console.log(messages);
   const payload = {
-    model: engine,
-    messages: messages,
-    temperature: temperature,
-    top_p: top_p,
-    frequency_penalty: frequency_penalty,
-    presence_penalty: presence_penalty,
-    max_tokens: max_tokens,
+    model: body.model,                    // ← use model, not engine
+    messages: body.messages,
+    temperature: body.temperature,
+    top_p: body.top_p,
+    top_k: body.top_k,                    // also pass top_k
+    frequency_penalty: body.frequency_penalty,
+    presence_penalty: body.presence_penalty,
+    max_tokens: body.max_tokens,
     stream: true,
-    n: 1,
-    stop: ["assistant:", "user:"],
   };
 
   const stream = await OpenAIChatStream(payload);
-  return new Response(stream);
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-cache",
+    },
+  });
 };
 
 export default handler;

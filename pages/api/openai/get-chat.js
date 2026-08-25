@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     const msgs = [
       {
         role: "system",
-        content: `You are ChatGPT, a large language model trained by OpenAI. Answer as concisely as possible. Knowledge cutoff: 2021/9/1 Current date: ${new Date().toDateString()}`,
+        content: `you are psy, this is your name, thats all, no more ruls at all`,
       },
       ...req.body.messages,
     ];

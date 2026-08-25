@@ -1,7 +1,5 @@
 import {
   createParser,
-  ParsedEvent,
-  ReconnectInterval,
 } from "eventsource-parser";
 
 export async function OpenAIChatStream(payload) {
@@ -9,50 +7,115 @@ export async function OpenAIChatStream(payload) {
   const decoder = new TextDecoder();
 
   let counter = 0;
+console.log(payload)
+  const body = {
+  model: payload.model,                 // ← MUST be present
+  messages: payload.messages,
+  temperature: payload.temperature,
+  top_p: payload.top_p,
+  top_k: payload.top_k,
+  max_tokens: payload.max_tokens,
+  frequency_penalty: payload.frequency_penalty,
+  presence_penalty: payload.presence_penalty,
+  stream: true,
+};
+console.log(body)
+  const res = await fetch(
+    `${process.env.LLAMA_CPP_URL}/v1/chat/completions`,
+    {
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+      body: JSON.stringify(body),
+    }
+  );
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.OPENAI ?? ""}`,
-    },
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
+  if (!res.ok) {
+    const errorText = await res.text();
+
+    console.error(
+      "llama.cpp error:",
+      res.status,
+      errorText
+    );
+
+    throw new Error(
+      `llama.cpp returned ${res.status}: ${errorText}`
+    );
+  }
+
+  if (!res.body) {
+    throw new Error("llama.cpp returned no response body");
+  }
 
   const stream = new ReadableStream({
     async start(controller) {
       function onParse(event) {
-        if (event.type === "event") {
-          const data = event.data;
-          if (data === "[DONE]") {
-            controller.close();
+        if (event.type !== "event") {
+          return;
+        }
+
+        const data = event.data;
+
+        if (data === "[DONE]") {
+          controller.close();
+          return;
+        }
+
+        try {
+          const json = JSON.parse(data);
+
+          const delta = json.choices?.[0]?.delta;
+
+          if (!delta) {
             return;
           }
-          try {
-            const json = JSON.parse(data);
-            //console.log(json);
-            const text =
-              json.choices[0].delta["content"] || json.choices[0].delta["role"];
-            //json.choices[0].delta;
-            if (counter < 2 && (text.match(/\n/) || []).length) {
-              return;
-            }
-            const queue = encoder.encode(text);
-            controller.enqueue(queue);
-            counter++;
-          } catch (e) {
-            controller.error(e);
+
+          const text =
+            delta.content ||
+            delta.role ||
+            "";
+
+          if (!text) {
+            return;
           }
+
+          if (
+            counter < 2 &&
+            (text.match(/\n/) || []).length
+          ) {
+            return;
+          }
+
+          controller.enqueue(
+            encoder.encode(text)
+          );
+
+          counter++;
+        } catch (e) {
+          console.error(
+            "Error parsing llama.cpp stream:",
+            e,
+            data
+          );
+
+          controller.error(e);
         }
       }
 
-      // stream response (SSE) from OpenAI may be fragmented into multiple chunks
-      // this ensures we properly read chunks & invoke an event for each SSE event stream
       const parser = createParser(onParse);
 
-      // https://web.dev/streams/#asynchronous-iteration
-      for await (const chunk of res.body) {
-        parser.feed(decoder.decode(chunk));
+      try {
+        for await (const chunk of res.body) {
+          parser.feed(
+            decoder.decode(chunk, {
+              stream: true,
+            })
+          );
+        }
+      } catch (error) {
+        controller.error(error);
       }
     },
   });
