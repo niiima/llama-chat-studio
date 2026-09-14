@@ -1,9 +1,7 @@
 import { OpenAIChatStream } from "./OpenAIChatStream";
-import { dbConnect } from "../../config/db.js";
-import ChatMessage from "../../models/ChatMessage.js";
 
 export const config = {
-  runtime: "nodejs",
+  runtime: "edge",
 };
 
 const handler = async (req) => {
@@ -20,7 +18,7 @@ const handler = async (req) => {
   const { messages, ...rest } = body; // Destructure to separate messages array
 
   // 1. Connect to Database
-  await dbConnect();
+  // await dbConnect();
 
   // 2. Prepare Payload for AI call
   const payload = {
