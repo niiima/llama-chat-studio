@@ -117,15 +117,10 @@ const handleSubmit = async (e) => {
       throw new Error(response.statusText || "Request failed");
     }
 
-    const data = response.body;
-    if (!data) {
-      console.log("No Data");
-      return;
-    }
-
-    const reader = data.getReader();
+    const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let done = false;
+    let fullCompletion = ""; // Variable to store the entire response
 
     while (!done) {
       const { value, done: doneReading } = await reader.read();
@@ -133,22 +128,45 @@ const handleSubmit = async (e) => {
       const chunkValue = decoder.decode(value);
       setStream((prev) => prev + chunkValue);
       streamTextArray.push(chunkValue);
+      fullCompletion += chunkValue; // Accumulate full completion for saving
     }
 
-    const completion = streamTextArray.join("").trim();
+    const completion = fullCompletion.trim();
     const completion_timestamp = new Date();
 
     // Only save clean completions
     if (completion && !isGarbage(completion)) {
-      addToHistory({
-        chatId: uuidv4(),
+      const newMessageItem = {
+        chatId: uuidv4(), // Generate ID here for persistence
         prompt: e,
-        prompt_timestamp,
-        completion,
-        completion_timestamp,
+        prompt_timestamp: prompt_timestamp,
+        completion: completion,
+        completion_timestamp: completion_timestamp,
         engine: activeEngine.key,
         showMarkdown: false,
-      });
+      };
+
+      // 1. Update Local State (UI)
+      addToHistory(newMessageItem);
+
+      // 2. PERSIST TO MONGODB via new API endpoint
+      try {
+        await fetch("/api/save-chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chatId: newMessageItem.chatId,
+            prompt: newMessageItem.prompt,
+            completion: newMessageItem.completion,
+            engine: newMessageItem.engine,
+            prompt_timestamp: newMessageItem.prompt_timestamp,
+            completion_timestamp: newMessageItem.completion_timestamp,
+          }),
+        });
+        console.log("Successfully saved chat to MongoDB.");
+      } catch (dbError) {
+        console.error("Failed to save chat to MongoDB:", dbError);
+      }
     }
 
     setStream("");

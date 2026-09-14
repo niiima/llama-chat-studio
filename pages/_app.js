@@ -8,7 +8,7 @@ import { AuthProvider } from "../context/AuthContext";
 import { ThemeProvider } from "styled-components";
 import theme from "../styles/theme";
 import GlobalStyles from "../styles/GlobalStyles";
-import { Analytics } from "@vercel/analytics/react";
+// import { Analytics } from "@vercel/analytics/react";
 
 export default function MyApp({ Component, pageProps }) {
   return (
@@ -21,7 +21,7 @@ export default function MyApp({ Component, pageProps }) {
             <ChatProvider>
               <AIProvider>
                 <Component {...pageProps} />
-                <Analytics />
+                {/* <Analytics /> */}
               </AIProvider>
             </ChatProvider>
           </UIContextProvider>
