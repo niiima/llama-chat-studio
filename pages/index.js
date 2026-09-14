@@ -38,136 +38,127 @@ export default function MyPage() {
   const [stream, setStream] = useState("");
   // const [initialGreets, setInitialGreets] = useState("pending");
 
-  const handleSubmit = async (e) => {
-    // console.log(e);
-    const streamTextArray = [];
-    const prompt_timestamp = new Date();
-    const streamArray = [];
-    setIsLoading(true);
+const handleSubmit = async (e) => {
+  const streamTextArray = [];
+  const prompt_timestamp = new Date();
+  setIsLoading(true);
+
+  try {
+    // ---------- 1. Build clean conversation history ----------
+    const maxContext = activeEngine.maxTokens ?? 8192;
+    const maxReply = AIstate.max_response_tokens ?? 2048;
+    const safetyMargin = 256;
+    const availableForHistory = maxContext - maxReply - safetyMargin;
+
+    // Helper: detect garbage (HTML pages, empty, etc.)
+    const isGarbage = (text) => {
+      if (!text || typeof text !== "string") return true;
+      const t = text.trim();
+      if (t.length < 2) return true;
+      if (t.includes("<html") || t.includes("<!DOCTYPE") || t.includes("scriptLoader")) return true;
+      if (t.startsWith("<div style=")) return true;
+      return false;
+    };
+
+    // Walk history from newest → oldest, keep only clean turns
+    const historyMessages = [];
+    let usedTokens = 0;
+
+    for (let i = chatHistory.length - 1; i >= 0; i--) {
+      const { prompt, completion } = chatHistory[i];
+
+      if (isGarbage(prompt) || isGarbage(completion)) continue;
+
+      const dialogTokens =
+        encode(prompt).length + encode(completion).length;
+
+      if (usedTokens + dialogTokens > availableForHistory) break;
+
+      // unshift so final order is oldest → newest
+      historyMessages.unshift(
+        { role: "user", content: prompt },
+        { role: "assistant", content: completion }
+      );
+      usedTokens += dialogTokens;
+    }
+
+    // ---------- 2. Final messages array ----------
     const messages = [];
 
-    const tokenRange =
-      AIstate.max_tokens - AIstate.max_response_tokens < activeEngine.maxTokens
-        ? AIstate.max_tokens - AIstate.max_response_tokens
-        : 4096;
+    if (systemPrompt?.trim()) {
+      messages.push({ role: "system", content: systemPrompt.trim() });
+    }
 
-    let previousMessagesToken = 0;
-    const chatLength = chatHistory.length - 1;
-    try {
-      for (let i = chatLength; i >= 0; i--) {
-        const { prompt, completion } = chatHistory[i];
-        let dialogTokens = encode(prompt).length + encode(completion).length;
-        console.log(
-          `tokenRange: ${tokenRange} |
-           dialogTokens: ${dialogTokens} | messageTokens: ${previousMessagesToken}`
-        );
-        if (
-          previousMessagesToken +
-            systemPrompt.length +
-            dialogTokens +
-            e.length <=
-          tokenRange
-        ) {
-          messages.push({ role: "user", content: prompt });
-          messages.push({ role: "assistant", content: completion });
-          previousMessagesToken += dialogTokens;
-        } else {
-          // console.log("breaking");
-          break;
-        }
-      }
+    messages.push(...historyMessages);
+    messages.push({ role: "user", content: e });
 
-      const dialogs = [];
+    // ---------- 3. Payload ----------
+    const options = {
+      model: activeEngine.key,
+      messages,
+      temperature: AIstate.temperature ?? activeEngine.temperature ?? 0.6,
+      top_p: AIstate.top_p ?? activeEngine.top_p ?? 0.95,
+      top_k: AIstate.top_k ?? activeEngine.top_k ?? 40,
+      frequency_penalty: AIstate.frequency_penalty ?? 0,
+      presence_penalty: AIstate.presence_penalty ?? 0,
+      max_tokens: AIstate.max_response_tokens ?? 2048,
+    };
 
-      if (systemPrompt.length > 0)
-        dialogs.push({ role: "system", content: systemPrompt });
+    console.log("Sending:", options);
 
-      messages.forEach((message) => dialogs.push(message));
+    // ---------- 4. Call API (same as before) ----------
+    const response = await fetch("/api/generate-chat-completion", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(options),
+    });
 
-      dialogs.push({ role: "user", content: e });
-      // console.log(dialogs);
-      const options = {
-        model: activeEngine.key,                    // ← use "model" (OpenAI style)
-        messages: dialogs,
+    if (!response.ok) {
+      throw new Error(response.statusText || "Request failed");
+    }
 
-        // Sampling parameters
-        temperature: AIstate.temperature ?? activeEngine.temperature ?? 0.6,
-        top_p: AIstate.top_p ?? activeEngine.top_p ?? 0.95,
-        top_k: AIstate.top_k ?? activeEngine.top_k ?? 40,
-        frequency_penalty: AIstate.frequency_penalty ?? 0,
-        presence_penalty: AIstate.presence_penalty ?? 0,
+    const data = response.body;
+    if (!data) {
+      console.log("No Data");
+      return;
+    }
 
-        // Important: this controls how long the reply can be
-        max_tokens: AIstate.max_response_tokens ?? 2048,
-      };
-       console.log(options);
-      const response = await fetch("/api/generate-chat-completion", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(options),
-      }).catch((error) => console.log(error));
-      if (!response.ok) {
-        setIsLoading(false);
-        try {
-          throw new Error(response.statusText);
-          // return;
-        } catch {
-          (error) => console.log(error);
-          console.log(response?.statusText);
-        }
-      }
+    const reader = data.getReader();
+    const decoder = new TextDecoder();
+    let done = false;
 
-      const data = response.body;
-      // console.log(data);
-      if (!data) {
-        console.log("No Data");
-        return;
-      }
+    while (!done) {
+      const { value, done: doneReading } = await reader.read();
+      done = doneReading;
+      const chunkValue = decoder.decode(value);
+      setStream((prev) => prev + chunkValue);
+      streamTextArray.push(chunkValue);
+    }
 
-      const reader = data.getReader();
-      const decoder = new TextDecoder();
-      let done = false;
+    const completion = streamTextArray.join("").trim();
+    const completion_timestamp = new Date();
 
-      let init = false;
-      while (!done) {
-        const { value, done: doneReading } = await reader.read();
-        done = doneReading;
-        const chunkValue = decoder.decode(value);
-        if (init === false) {
-          init = true;
-          const substr = chunkValue.slice(9); // remove assistant from the beginning of conversation
-          setStream((prev) => prev + substr);
-          streamTextArray.push(substr);
-        } else {
-          setStream((prev) => prev + chunkValue);
-          streamTextArray.push(chunkValue);
-        }
-      }
-
-      const completion_timestamp = new Date();
-      const completion = streamTextArray.join("");
-
+    // Only save clean completions
+    if (completion && !isGarbage(completion)) {
       addToHistory({
         chatId: uuidv4(),
         prompt: e,
-        prompt_timestamp: prompt_timestamp,
-        completion: completion,
-        completion_timestamp: completion_timestamp,
+        prompt_timestamp,
+        completion,
+        completion_timestamp,
         engine: activeEngine.key,
         showMarkdown: false,
       });
-       console.log(chatHistory);
-      setStream("");
-      // if (initialGreets === "done")
-      setPrompt("");
-    } catch {
-      (error) => console.log(error);
-    } finally {
-      setIsLoading(false);
     }
-  };
+
+    setStream("");
+    setPrompt("");
+  } catch (error) {
+    console.error(error);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div>

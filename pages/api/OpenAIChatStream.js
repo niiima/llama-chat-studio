@@ -7,18 +7,20 @@ export async function OpenAIChatStream(payload) {
   const decoder = new TextDecoder();
 
   let counter = 0;
-console.log(payload)
-  const body = {
-  model: payload.model,                 // ← MUST be present
-  messages: payload.messages,
-  temperature: payload.temperature,
-  top_p: payload.top_p,
-  top_k: payload.top_k,
-  max_tokens: payload.max_tokens,
-  frequency_penalty: payload.frequency_penalty,
-  presence_penalty: payload.presence_penalty,
-  stream: true,
-};
+  console.log(payload)
+    const body = {
+    // model: payload.model,                 // ← MUST be present
+    // messages: payload.messages,
+    // temperature: payload.temperature,
+    // top_p: payload.top_p,
+    // top_k: payload.top_k,
+    // max_tokens: payload.max_tokens,
+    // frequency_penalty: payload.frequency_penalty,
+    // presence_penalty: payload.presence_penalty,
+    ...payload,
+    stream: true,
+    // n: 1,
+  };
 console.log(body)
   const res = await fetch(
     `${process.env.LLAMA_CPP_URL}/v1/chat/completions`,
@@ -65,41 +67,16 @@ console.log(body)
 
         try {
           const json = JSON.parse(data);
-
           const delta = json.choices?.[0]?.delta;
 
-          if (!delta) {
-            return;
+          if (!delta?.content) {
+            return; // skip role-only chunks and empty deltas
           }
 
-          const text =
-            delta.content ||
-            delta.role ||
-            "";
-
-          if (!text) {
-            return;
-          }
-
-          if (
-            counter < 2 &&
-            (text.match(/\n/) || []).length
-          ) {
-            return;
-          }
-
-          controller.enqueue(
-            encoder.encode(text)
-          );
-
+          controller.enqueue(encoder.encode(delta.content));
           counter++;
         } catch (e) {
-          console.error(
-            "Error parsing llama.cpp stream:",
-            e,
-            data
-          );
-
+          console.error("Error parsing llama.cpp stream:", e, data);
           controller.error(e);
         }
       }
