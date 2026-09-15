@@ -58,8 +58,11 @@ export default async function handler(req, res) {
         role,
         content,
         timestamp: timestamp || new Date(),
-        engine: engine || undefined,
-      });
+        engine:
+            role === "assistant"
+            ? engine || null
+            : null,
+        });
 
       // First user message becomes the title
       if (

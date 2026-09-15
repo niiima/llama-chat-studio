@@ -91,7 +91,7 @@ export default function useChat({
               role: "user",
               content: userContent,
               timestamp: new Date().toISOString(),
-              engine: activeEngine.key,
+            //   engine: activeEngine.key,
             }),
           }
         );
