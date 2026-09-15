@@ -6,7 +6,7 @@ export default function ChatSettingsControl() {
   const { setAIState, activeEngine } = useContext(AIContext);
 
   // Keep track of the previous engine so we only reset when it actually changes
-  const prevEngineKey = useRef(activeEngine?.key);
+  // const prevEngineKey = useRef(activeEngine?.key);
 
   const defaults = {
     max_tokens: activeEngine?.maxTokens ?? 8192,
@@ -89,21 +89,21 @@ export default function ChatSettingsControl() {
   ]);
 
   // When the user switches engine, force the controls to the new defaults
-  useEffect(() => {
-    if (activeEngine?.key && activeEngine.key !== prevEngineKey.current) {
-      prevEngineKey.current = activeEngine.key;
+  // useEffect(() => {
+  //   if (activeEngine?.key && activeEngine.key !== prevEngineKey.current) {
+  //     prevEngineKey.current = activeEngine.key;
 
-      set({
-        max_tokens: activeEngine.maxTokens ?? 8192,
-        max_response_tokens: activeEngine.max_response_tokens ?? 2048,
-        temperature: activeEngine.temperature ?? 0.6,
-        top_p: activeEngine.top_p ?? 0.95,
-        top_k: activeEngine.top_k ?? 40,
-        frequency_penalty: activeEngine.frequency_penalty ?? 0,
-        presence_penalty: activeEngine.presence_penalty ?? 0,
-      });
-    }
-  }, [activeEngine?.key, set]);
+  //     set({
+  //       max_tokens: activeEngine.maxTokens ?? 8192,
+  //       max_response_tokens: activeEngine.max_response_tokens ?? 2048,
+  //       temperature: activeEngine.temperature ?? 0.6,
+  //       top_p: activeEngine.top_p ?? 0.95,
+  //       top_k: activeEngine.top_k ?? 40,
+  //       frequency_penalty: activeEngine.frequency_penalty ?? 0,
+  //       presence_penalty: activeEngine.presence_penalty ?? 0,
+  //     });
+  //   }
+  // }, [activeEngine?.key, set]);
 
   return (
     <div style={{ marginTop: 2, width: "99%", marginLeft: 1 }}>

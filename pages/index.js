@@ -1,234 +1,418 @@
-import { useState, useEffect, useContext } from "react";
+import {
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
 import Head from "next/head";
-import { experimentalEngines as engines } from "../model/model.js";
+
+import {
+  experimentalEngines as engines,
+} from "../model/model.js";
+
 import ChatComponent from "../components/ChatComponent";
+
 import ChatContext from "../context/ChatContext.js";
 import AIContext from "../context/AIContext.js";
-import Sidebar from "../components/Sidebar/Sidebar.js";
-import ChatSettingsControl from "../components/AIManipulatingComponents/AISettingsControl.js";
-import Header from "../components/Header/Header.js";
 import UIContext from "../context/UIContext.js";
-import { FlexItem } from "../components/Atoms/FlexItem.js";
-import { v4 as uuidv4 } from "uuid";
+
+import Sidebar from "../components/Sidebar/Sidebar.js";
+
+import ChatSettingsControl from "../components/AIManipulatingComponents/AISettingsControl.js";
+
+import Header from "../components/Header/Header.js";
+
+import {
+  FlexItem,
+} from "../components/Atoms/FlexItem.js";
+
 import OrdinaryButton from "../components/Buttons/OrdinaryButton";
-import { MdDeleteSweep } from "react-icons/md";
+
+import {
+  MdDeleteSweep,
+} from "react-icons/md";
+
 import ModeSelector from "../components/AIManipulatingComponents/ModeSelector.js";
+
 import SystemPromptTextArea from "../components/AIManipulatingComponents/SystemPromptTextArea";
+
 import ColorfulButtonSet from "../components/Buttons/ColorfulButtons.js";
+
 import GroupRadioButtons from "../components/Inputs/GroupRadio/GroupRadioButtons.js";
+
 import ActSelector from "../components/AIManipulatingComponents/ActSelector.js";
-import { encode } from "gpt-tokenizer";
+
+import ConversationList from "../components/Sidebar/ConversationList";
+
+import useChat from "../hooks/useChat";
 
 export default function MyPage() {
-  const { asideExpanded, setAsideExpand } = useContext(UIContext);
+  const {
+    asideExpanded,
+    setAsideExpand,
+  } = useContext(UIContext);
 
   const {
+    chats,
+    activeChat,
+    activeChatId,
+
     chatHistory,
-    addToHistory,
-    isLoading,
-    setIsLoading,
-    clearChatHistory,
+
+    isLoadingChats,
+    isLoadingConversation,
+    // isLoading,
+    createChat,
+    selectChat,
+    deleteChat,
+    clearChat,
+
+    updateActiveChatSettings,
   } = useContext(ChatContext);
 
-  const { AIstate } = useContext(AIContext);
-  const [activeEngine, setActiveEngine] = useState(engines.filter(e=>e.id==0)[0]);
+  const {
+    AIstate,
+    activeEngine,
+    setActiveEngine,
+    setAIState
+  } = useContext(AIContext);
 
-  const [prompt, setPrompt] = useState("");
-  const [systemPrompt, setSystemPrompt] = useState("");
-  const [stream, setStream] = useState("");
-  // const [initialGreets, setInitialGreets] = useState("pending");
+  // const [
+  //   activeEngine,
+  //   setActiveEngine,
+  // ] = useState(
+  //   engines.find(
+  //     (engine) => engine.id === 0
+  //   ) || engines[0]
+  // );
 
-const handleSubmit = async (e) => {
-  const streamTextArray = [];
-  const prompt_timestamp = new Date();
-  setIsLoading(true);
+  const [
+    systemPrompt,
+    setSystemPrompt,
+  ] = useState("");
 
-  try {
-    // ---------- 1. Build clean conversation history ----------
-    const maxContext = activeEngine.maxTokens ?? 8192;
-    const maxReply = AIstate.max_response_tokens ?? 2048;
-    const safetyMargin = 256;
-    const availableForHistory = maxContext - maxReply - safetyMargin;
+  const initialized =
+    useRef(false);
 
-    // Helper: detect garbage (HTML pages, empty, etc.)
-    const isGarbage = (text) => {
-      if (!text || typeof text !== "string") return true;
-      const t = text.trim();
-      if (t.length < 2) return true;
-      if (t.includes("<html") || t.includes("<!DOCTYPE") || t.includes("scriptLoader")) return true;
-      if (t.startsWith("<div style=")) return true;
-      return false;
-    };
-
-    // Walk history from newest → oldest, keep only clean turns
-    const historyMessages = [];
-    let usedTokens = 0;
-
-    for (let i = chatHistory.length - 1; i >= 0; i--) {
-      const { prompt, completion } = chatHistory[i];
-
-      if (isGarbage(prompt) || isGarbage(completion)) continue;
-
-      const dialogTokens =
-        encode(prompt).length + encode(completion).length;
-
-      if (usedTokens + dialogTokens > availableForHistory) break;
-
-      // unshift so final order is oldest → newest
-      historyMessages.unshift(
-        { role: "user", content: prompt },
-        { role: "assistant", content: completion }
-      );
-      usedTokens += dialogTokens;
+  /*
+   * Keep system prompt synchronized
+   * with selected conversation.
+   */
+  useEffect(() => {
+    if (!activeChat) {
+      return;
     }
 
-    // ---------- 2. Final messages array ----------
-    const messages = [];
+    const settings =
+      activeChat.settings || {};
 
-    if (systemPrompt?.trim()) {
-      messages.push({ role: "system", content: systemPrompt.trim() });
-    }
+    setSystemPrompt(
+      settings.systemPrompt || ""
+    );
 
-    messages.push(...historyMessages);
-    messages.push({ role: "user", content: e });
+    setAIState({
+      temperature:
+        settings.temperature ??
+        AIstate.temperature,
 
-    // ---------- 3. Payload ----------
-    const options = {
-      model: activeEngine.key,
-      messages,
-      temperature: AIstate.temperature ?? activeEngine.temperature ?? 0.6,
-      top_p: AIstate.top_p ?? activeEngine.top_p ?? 0.95,
-      top_k: AIstate.top_k ?? activeEngine.top_k ?? 40,
-      frequency_penalty: AIstate.frequency_penalty ?? 0,
-      presence_penalty: AIstate.presence_penalty ?? 0,
-      max_tokens: AIstate.max_response_tokens ?? 2048,
-    };
+      top_p:
+        settings.top_p ??
+        AIstate.top_p,
 
-    console.log("Sending:", options);
+      top_k:
+        settings.top_k ??
+        AIstate.top_k,
 
-    // ---------- 4. Call API (same as before) ----------
-    const response = await fetch("/api/generate-chat-completion", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(options),
+      frequency_penalty:
+        settings.frequency_penalty ??
+        AIstate.frequency_penalty,
+
+      presence_penalty:
+        settings.presence_penalty ??
+        AIstate.presence_penalty,
+
+      max_response_tokens:
+        settings.max_response_tokens ??
+        AIstate.max_response_tokens,
     });
 
-    if (!response.ok) {
-      throw new Error(response.statusText || "Request failed");
+    /*
+     * Restore engine if it exists.
+     */
+    const storedEngine =
+      engines.find(
+        (engine) =>
+          engine.key ===
+          activeChat.startingEngine
+      );
+
+    if (storedEngine) {
+      setActiveEngine(
+        storedEngine
+      );
+    }
+  }, [activeChat?._id]);
+
+  /*
+   * Initial application startup.
+   */
+  useEffect(() => {
+    if (
+      initialized.current ||
+      isLoadingChats
+    ) {
+      return;
     }
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let done = false;
-    let fullCompletion = ""; // Variable to store the entire response
+    if (chats.length > 0) {
+      initialized.current =
+        true;
 
-    while (!done) {
-      const { value, done: doneReading } = await reader.read();
-      done = doneReading;
-      const chunkValue = decoder.decode(value);
-      setStream((prev) => prev + chunkValue);
-      streamTextArray.push(chunkValue);
-      fullCompletion += chunkValue; // Accumulate full completion for saving
+      selectChat(
+        chats[0]._id
+      );
+
+      return;
     }
 
-    const completion = fullCompletion.trim();
-    const completion_timestamp = new Date();
+    /*
+     * No conversation exists.
+     * Create the first one.
+     */
+    initialized.current =
+      true;
 
-    // Only save clean completions
-    if (completion && !isGarbage(completion)) {
-      const newMessageItem = {
-        chatId: uuidv4(), // Generate ID here for persistence
-        prompt: e,
-        prompt_timestamp: prompt_timestamp,
-        completion: completion,
-        completion_timestamp: completion_timestamp,
-        engine: activeEngine.key,
-        showMarkdown: false,
-      };
+    createChat({
+      engine:
+        activeEngine.key,
 
-      // 1. Update Local State (UI)
-      addToHistory(newMessageItem);
+      settings: {
+        systemPrompt,
+        ...AIstate,
+      },
+    }).catch((error) => {
+      console.error(
+        "Initial chat creation:",
+        error
+      );
 
-      // 2. PERSIST TO MONGODB via new API endpoint
-      try {
-        await fetch("/api/save-chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chatId: newMessageItem.chatId,
-            prompt: newMessageItem.prompt,
-            completion: newMessageItem.completion,
-            engine: newMessageItem.engine,
-            prompt_timestamp: newMessageItem.prompt_timestamp,
-            completion_timestamp: newMessageItem.completion_timestamp,
-          }),
-        });
-        console.log("Successfully saved chat to MongoDB.");
-      } catch (dbError) {
-        console.error("Failed to save chat to MongoDB:", dbError);
+      initialized.current =
+        false;
+    });
+  }, [
+    isLoadingChats,
+    chats.length,
+  ]);
+
+  /*
+   * AI communication.
+   */
+  const {
+    stream,
+    sendMessage,
+  } = useChat({
+    activeEngine,
+    systemPrompt,
+  });
+
+  /*
+   * Send message.
+   */
+  const handleSubmit =
+    async (content) => {
+      await sendMessage(
+        content
+      );
+    };
+
+  /*
+   * New conversation.
+   */
+  const handleNewChat = async () => {
+    if (!activeEngine?.key) {
+      console.error("No active engine selected");
+      return;
+    }
+
+    await createChat(activeEngine.key, {
+      systemPrompt: AIstate.systemPrompt ?? "",
+      max_response_tokens:
+        AIstate.max_response_tokens ??
+        activeEngine.max_response_tokens ??
+        2048,
+      temperature:
+        AIstate.temperature ??
+        activeEngine.temperature ??
+        0.6,
+      top_p:
+        AIstate.top_p ??
+        activeEngine.top_p ??
+        0.95,
+      top_k:
+        AIstate.top_k ??
+        activeEngine.top_k ??
+        40,
+      frequency_penalty:
+        AIstate.frequency_penalty ?? 0,
+      presence_penalty:
+        AIstate.presence_penalty ?? 0,
+      mode: AIstate.mode ?? "",
+      act: AIstate.act ?? "",
+    });
+  };
+
+  /*
+   * Change engine.
+   */
+  const handleEngineChange =
+    async (engineKey) => {
+      const engine =
+        engines.find(
+          (item) =>
+            item.key ===
+            engineKey
+        );
+
+      if (!engine) {
+        return;
       }
-    }
 
-    setStream("");
-    setPrompt("");
-  } catch (error) {
-    console.error(error);
-  } finally {
-    setIsLoading(false);
-  }
-};
+      setActiveEngine(engine);
+
+      if (activeChatId) {
+        /*
+         * The next message will use this engine.
+         * Persisting the setting can be added here.
+         */
+      }
+    };
+
+  /*
+   * System prompt change.
+   */
+  const handleSystemPromptChange =
+    (value) => {
+      setSystemPrompt(value);
+
+      updateActiveChatSettings({
+        systemPrompt:
+          value,
+      });
+    };
 
   return (
     <div>
       <Head>
-        <title>MyGPT3.5</title>
+        <title>
+          MyGPT3.5
+        </title>
       </Head>
-      <Sidebar show={asideExpanded}>
-        <ColorfulButtonSet items={AIstate}></ColorfulButtonSet>
+
+      <Sidebar
+        show={asideExpanded}
+      >
+        <ConversationList
+          chats={chats}
+          activeChatId={
+            activeChatId
+          }
+          loading={
+            isLoadingChats
+          }
+          onNewChat={
+            handleNewChat
+          }
+          onSelectChat={
+            selectChat
+          }
+          onDeleteChat={
+            deleteChat
+          }
+        />
+
+        <ColorfulButtonSet
+          items={AIstate}
+        />
+
         <ChatSettingsControl />
+
         <GroupRadioButtons
-          items={[
-            ...engines.map((engine) => {
-              return {
-                text: engine.name,
-                value: engine.key,
-                isActive: engine.key === activeEngine.key,
-              };
-            }),
-          ]}
-          changeHandler={(e) =>
-            setActiveEngine(engines.find((eng) => eng.key === e))
-          }></GroupRadioButtons>
+          items={engines.map(
+            (engine) => ({
+              text:
+                engine.name,
+
+              value:
+                engine.key,
+
+              isActive:
+                engine.key ===
+                activeEngine.key,
+            })
+          )}
+          changeHandler={
+            handleEngineChange
+          }
+        />
+
         <ModeSelector
-          handleChange={(prompt) => {
-            // clearChatHistory();
-            setSystemPrompt(prompt);
-          }}></ModeSelector>
+          handleChange={
+            handleSystemPromptChange
+          }
+        />
+
         <ActSelector
-          onChangeHandler={(prompt) => {
-            // clearChatHistory();
-            setSystemPrompt(prompt);
-          }}></ActSelector>
+          onChangeHandler={
+            handleSystemPromptChange
+          }
+        />
+
         <SystemPromptTextArea
-          value={systemPrompt}
+          value={
+            systemPrompt
+          }
           onChange={(e) =>
-            setSystemPrompt(e.currentTarget.value)
-          }></SystemPromptTextArea>
-        {/* <ColorBoxSelector></ColorBoxSelector> */}
+            handleSystemPromptChange(
+              e.currentTarget.value
+            )
+          }
+        />
       </Sidebar>
+
       <Header>
         <FlexItem width={50}>
           <OrdinaryButton
-            text={""}
-            icon={<MdDeleteSweep size='20' color='#ef3c39' />}
-            handleOnClick={() => clearChatHistory()}></OrdinaryButton>
+            text=""
+            icon={
+              <MdDeleteSweep
+                size="20"
+                color="#ef3c39"
+              />
+            }
+            handleOnClick={() =>
+              clearChat()
+            }
+          />
         </FlexItem>
       </Header>
+
       <ChatComponent
         stream={stream}
-        prompt={prompt}
-        handleSendMessage={handleSubmit}
-        handleOnClick={() => setAsideExpand(false)}
+        prompt=""
+        handleSendMessage={
+          handleSubmit
+        }
+        handleOnClick={() =>
+          setAsideExpand(false)
+        }
+        chatHistory={
+          chatHistory
+        }
+        isLoading={
+          isLoadingChats ||
+          isLoadingConversation
+        }
       />
     </div>
   );
