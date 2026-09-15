@@ -35,7 +35,7 @@ export default function ConversationList({
             key={chat.chatId}
             chat={chat}
             active={
-              chat.chatId ===
+              chat._id ===
               activeChatId
             }
             onClick={() =>
@@ -45,7 +45,7 @@ export default function ConversationList({
             }
             onDelete={() =>
               onDeleteChat(
-                chat.chatId
+                chat._id
               )
             }
           />

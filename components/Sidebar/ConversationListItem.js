@@ -38,7 +38,7 @@ export default function ConversationListItem({
               "Delete this conversation?"
             )
           ) {
-            onDelete();
+            onDelete(chat._id);
           }
         }}
       >

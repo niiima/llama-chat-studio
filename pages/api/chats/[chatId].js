@@ -1,5 +1,6 @@
 import { dbConnect } from "../../../config/db.js";
 import ChatSession from "../../../models/ChatSession.js";
+import mongoose from "mongoose";
 
 export default async function handler(req, res) {
   const { chatId } = req.query;
@@ -11,13 +12,23 @@ export default async function handler(req, res) {
     });
   }
 
-  await dbConnect();
+  if (!mongoose.Types.ObjectId.isValid(chatId)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid chat ID",
+    });
+  }
 
-  if (req.method === "GET") {
-    try {
-      const chat = await ChatSession.findOne({
-        chatId,
-      }).lean();
+  try {
+    await dbConnect();
+
+    // ==========================================
+    // GET CHAT
+    // GET /api/chats/:chatId
+    // ==========================================
+
+    if (req.method === "GET") {
+      const chat = await ChatSession.findById(chatId).lean();
 
       if (!chat) {
         return res.status(404).json({
@@ -30,54 +41,75 @@ export default async function handler(req, res) {
         success: true,
         chat,
       });
-    } catch (error) {
-      console.error("GET /api/chats/[chatId]:", error);
-
-      return res.status(500).json({
-        success: false,
-        message: "Failed to load chat",
-      });
     }
-  }
 
-  if (req.method === "PATCH") {
-    try {
+    // ==========================================
+    // PATCH CHAT
+    // PATCH /api/chats/:chatId
+    // ==========================================
+
+    if (req.method === "PATCH") {
       const body = req.body || {};
 
       const update = {
         updatedAt: new Date(),
       };
 
+      // Update title
       if (typeof body.title === "string") {
-        update.title = body.title.trim() || "New Chat";
+        update.title =
+          body.title.trim() || "New Chat";
       }
 
-      if (body.engine) {
-        update.startingEngine = body.engine;
+      // Support either:
+      // { engine: "..." }
+      // or:
+      // { startingEngine: "..." }
+
+      const engine =
+        body.startingEngine ?? body.engine;
+
+      if (
+        typeof engine === "string" &&
+        engine.trim()
+      ) {
+        update.startingEngine = engine.trim();
       }
 
-      if (body.settings) {
+      // Merge settings instead of replacing them
+      if (
+        body.settings &&
+        typeof body.settings === "object"
+      ) {
+        const existingChat =
+          await ChatSession.findById(chatId);
+
+        if (!existingChat) {
+          return res.status(404).json({
+            success: false,
+            message: "Chat not found",
+          });
+        }
+
         update.settings = {
-          systemPrompt: body.settings.systemPrompt ?? "",
-          temperature: body.settings.temperature ?? 0.6,
-          top_p: body.settings.top_p ?? 0.95,
-          top_k: body.settings.top_k ?? 40,
-          frequency_penalty:
-            body.settings.frequency_penalty ?? 0,
-          presence_penalty:
-            body.settings.presence_penalty ?? 0,
-          max_response_tokens:
-            body.settings.max_response_tokens ?? 2048,
-          mode: body.settings.mode ?? "",
-          act: body.settings.act ?? "",
+          ...(existingChat.settings?.toObject?.() ||
+            existingChat.settings ||
+            {}),
+          ...body.settings,
         };
       }
 
-      const chat = await ChatSession.findOneAndUpdate(
-        { chatId },
-        { $set: update },
-        { new: true }
-      ).lean();
+      const chat =
+        await ChatSession.findByIdAndUpdate(
+          chatId,
+          {
+            $set: update,
+          },
+          {
+            new: true,
+            runValidators: true,
+          }
+        ).lean();
 
       if (!chat) {
         return res.status(404).json({
@@ -90,21 +122,16 @@ export default async function handler(req, res) {
         success: true,
         chat,
       });
-    } catch (error) {
-      console.error("PATCH /api/chats/[chatId]:", error);
-
-      return res.status(500).json({
-        success: false,
-        message: "Failed to update chat",
-      });
     }
-  }
 
-  if (req.method === "DELETE") {
-    try {
-      const deleted = await ChatSession.findOneAndDelete({
-        chatId,
-      });
+    // ==========================================
+    // DELETE CHAT
+    // DELETE /api/chats/:chatId
+    // ==========================================
+
+    if (req.method === "DELETE") {
+      const deleted =
+        await ChatSession.findByIdAndDelete(chatId);
 
       if (!deleted) {
         return res.status(404).json({
@@ -116,18 +143,26 @@ export default async function handler(req, res) {
       return res.status(200).json({
         success: true,
       });
-    } catch (error) {
-      console.error("DELETE /api/chats/[chatId]:", error);
-
-      return res.status(500).json({
-        success: false,
-        message: "Failed to delete chat",
-      });
     }
-  }
 
-  return res.status(405).json({
-    success: false,
-    message: "Method not allowed",
-  });
+    // ==========================================
+    // METHOD NOT ALLOWED
+    // ==========================================
+
+    return res.status(405).json({
+      success: false,
+      message: "Method not allowed",
+    });
+  } catch (error) {
+    console.error(
+      `/api/chats/${chatId}:`,
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to process chat request",
+      error: error.message,
+    });
+  }
 }
