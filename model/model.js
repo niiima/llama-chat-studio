@@ -106,7 +106,7 @@ export const engines = [
     id: 0,
     name: "Gemma 4 E4B Uncensored",
     // key: "gemma-4-E4B-it-ultra-uncensored-heretic-Q6_K",
-    key:"gemma-4-e4b",
+    key: "gemma-4-E4B-it-ultra-uncensored-heretic-Q6_K",
     maxTokens: 8192,
     max_response_tokens: 2048,
     temperature: 1.0,

@@ -5,9 +5,7 @@ export const config = {
 };
 
 const handler = async (req) => {
-  // In many Next.js API routes, if the request content-type is application/json, 
-  // the body is parsed and available on req.body.
-  const body = req.body;
+  const body = await req.json();
   
   if (!body) {
       return new Response(JSON.stringify({ error: "No body provided" }), {
@@ -17,8 +15,6 @@ const handler = async (req) => {
   
   const { messages, ...rest } = body; // Destructure to separate messages array
 
-  // 1. Connect to Database
-  // await dbConnect();
 
   // 2. Prepare Payload for AI call
   const payload = {
