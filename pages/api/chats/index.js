@@ -5,31 +5,22 @@ export default async function handler(req, res) {
   try {
     await dbConnect();
 
-    /*
-     * ==========================================
-     * GET /api/chats
-     * ==========================================
-     */
+    // ==========================================
+    // GET /api/chats
+    // ==========================================
 
     if (req.method === "GET") {
       const chats = await ChatSession.find({})
         .select(
-          "_id title startingEngine createdAt updatedAt messages"
+          "_id title currentEngine createdAt updatedAt messages"
         )
         .sort({ updatedAt: -1 })
         .lean();
 
-      /*
-       * We don't need to send the complete messages
-       * to the sidebar.
-       *
-       * Just return the number of messages.
-       */
-
       const chatList = chats.map((chat) => ({
         _id: chat._id.toString(),
         title: chat.title,
-        startingEngine: chat.startingEngine,
+        currentEngine: chat.currentEngine,
         createdAt: chat.createdAt,
         updatedAt: chat.updatedAt,
         messagesCount: chat.messages?.length || 0,
@@ -41,25 +32,23 @@ export default async function handler(req, res) {
       });
     }
 
-    /*
-     * ==========================================
-     * POST /api/chats
-     * ==========================================
-     */
+    // ==========================================
+    // POST /api/chats
+    // ==========================================
 
     if (req.method === "POST") {
-      const { startingEngine, settings } = req.body || {};
+      const { currentEngine, settings } = req.body || {};
 
-      if (!startingEngine) {
+      if (!currentEngine) {
         return res.status(400).json({
           success: false,
-          message: "startingEngine is required",
+          message: "currentEngine is required",
         });
       }
 
       const chat = await ChatSession.create({
         title: "New Chat",
-        startingEngine,
+        currentEngine,
         settings: settings || {},
         messages: [],
       });
@@ -69,7 +58,7 @@ export default async function handler(req, res) {
         chat: {
           _id: chat._id.toString(),
           title: chat.title,
-          startingEngine: chat.startingEngine,
+          currentEngine: chat.currentEngine,
           createdAt: chat.createdAt,
           updatedAt: chat.updatedAt,
           messagesCount: 0,

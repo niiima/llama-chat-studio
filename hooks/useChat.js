@@ -1,9 +1,4 @@
-import {
-  useCallback,
-  useContext,
-  useState,
-} from "react";
-
+import { useCallback, useContext, useState } from "react";
 import ChatContext from "../context/ChatContext";
 import AIContext from "../context/AIContext";
 
@@ -14,7 +9,6 @@ export default function useChat({
   const {
     activeChatId,
     messages,
-    addMessage,
     saveMessage,
     setIsLoading,
     updateChatInList,
@@ -24,11 +18,13 @@ export default function useChat({
 
   const [stream, setStream] = useState("");
 
+  // ==========================================
+  // SEND MESSAGE
+  // ==========================================
+
   const sendMessage = useCallback(
     async (content) => {
-      if (!content?.trim()) {
-        return;
-      }
+      if (!content?.trim()) return;
 
       if (!activeChatId) {
         console.error("No active chat");
@@ -40,10 +36,10 @@ export default function useChat({
         return;
       }
 
+      const userContent = content.trim();
+
       setIsLoading(true);
       setStream("");
-
-      const userContent = content.trim();
 
       const settings = {
         systemPrompt: systemPrompt || "",
@@ -76,85 +72,74 @@ export default function useChat({
       };
 
       try {
-        // --------------------------------------------------
-        // 1. Save user message
-        // --------------------------------------------------
+        // ========================================
+        // 1. SAVE USER MESSAGE
+        // ========================================
 
-        const userResponse = await fetch(
-          `/api/chats/${activeChatId}/messages`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              role: "user",
-              content: userContent,
-              timestamp: new Date().toISOString(),
-            //   engine: activeEngine.key,
-            }),
-          }
-        );
+        const userData = await saveMessage({
+          role: "user",
+          content: userContent,
+          timestamp: new Date().toISOString(),
+        });
 
-        const userData = await userResponse.json();
+        const savedUserMessage =
+          userData?.message;
 
-        if (!userResponse.ok) {
-          throw new Error(
-            userData.message ||
-              "Failed to save user message"
-          );
-        }
-
-        // Add the actual MongoDB message to UI
-        if (userData.message) {
-          addMessage(userData.message);
-        }
-
-        // --------------------------------------------------
-        // 2. Build generation context
-        // --------------------------------------------------
+        /*
+         * Build generation history from the existing
+         * conversation plus the newly saved user message.
+         *
+         * IMPORTANT:
+         * We don't use the React `messages` state here
+         * after saveMessage because React state updates
+         * asynchronously.
+         */
 
         const history = [
           ...(messages || []),
-          userData.message,
+          savedUserMessage,
         ].filter(Boolean);
+
+        // ========================================
+        // 2. BUILD GENERATION MESSAGES
+        // ========================================
 
         const generationMessages = [];
 
         if (settings.systemPrompt?.trim()) {
-        generationMessages.push({
+          generationMessages.push({
             role: "system",
             content: settings.systemPrompt.trim(),
-        });
+          });
         }
 
         generationMessages.push(
-        ...history.map((message) => ({
+          ...history.map((message) => ({
             role: message.role,
             content: message.content,
-        }))
+          }))
         );
 
-        // --------------------------------------------------
-        // 3. Generate AI response
-        // --------------------------------------------------
+        // ========================================
+        // 3. GENERATE RESPONSE
+        // ========================================
 
         const response = await fetch(
           "/api/generate-chat-completion",
           {
             method: "POST",
+
             headers: {
               "Content-Type": "application/json",
             },
+
             body: JSON.stringify({
               model: activeEngine.key,
+
               messages: generationMessages,
 
-              temperature:
-                settings.temperature,
-
+              temperature: settings.temperature,
               top_p: settings.top_p,
-
               top_k: settings.top_k,
 
               frequency_penalty:
@@ -187,21 +172,20 @@ export default function useChat({
 
         if (!response.body) {
           throw new Error(
-            "Response has no body"
+            "Response body is not available"
           );
         }
 
-        // --------------------------------------------------
-        // 4. Read streaming response
-        // --------------------------------------------------
+        // ========================================
+        // 4. READ STREAM
+        // ========================================
 
         const reader =
           response.body.getReader();
 
-        const decoder =
-          new TextDecoder();
+        const decoder = new TextDecoder();
 
-        let fullCompletion = "";
+        let completion = "";
 
         while (true) {
           const {
@@ -209,99 +193,85 @@ export default function useChat({
             done,
           } = await reader.read();
 
-          if (done) {
-            break;
-          }
+          if (done) break;
 
           const chunk =
             decoder.decode(value, {
               stream: true,
             });
 
-          fullCompletion += chunk;
+          completion += chunk;
 
-          setStream(
-            (previous) =>
-              previous + chunk
+          setStream(completion);
+        }
+
+        completion = completion.trim();
+
+        if (!completion) {
+          throw new Error(
+            "The assistant returned an empty response"
           );
         }
 
-        fullCompletion +=
-          decoder.decode();
+        // ========================================
+        // 5. SAVE ASSISTANT MESSAGE
+        // ========================================
 
-        const completion =
-          fullCompletion.trim();
+        const assistantData =
+          await saveMessage({
+            role: "assistant",
+            content: completion,
+            timestamp:
+              new Date().toISOString(),
 
-        // --------------------------------------------------
-        // 5. Save assistant message
-        // --------------------------------------------------
+            /*
+             * This is the important part:
+             *
+             * engine belongs ONLY to assistant messages.
+             *
+             * It records the engine that actually
+             * generated this response.
+             */
+            engine: activeEngine.key,
+          });
 
-        if (completion) {
-          const assistantResponse =
-            await fetch(
-              `/api/chats/${activeChatId}/messages`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type":
-                    "application/json",
-                },
-                body: JSON.stringify({
-                  role: "assistant",
-                  content: completion,
-                  timestamp:
-                    new Date().toISOString(),
-                  engine: activeEngine.key,
-                }),
-              }
-            );
+        // ========================================
+        // 6. UPDATE SIDEBAR
+        // ========================================
 
-          const assistantData =
-            await assistantResponse.json();
-
-          if (!assistantResponse.ok) {
-            throw new Error(
-              assistantData.message ||
-                "Failed to save assistant message"
-            );
-          }
-
-          if (assistantData.message) {
-            addMessage(
-              assistantData.message
-            );
-          }
-
-          // Update sidebar
-          if (assistantData.chat) {
-            updateChatInList({
-              chatId: activeChatId,
-              title: assistantData.chat.title,
-              updatedAt:
-                assistantData.chat.updatedAt,
-              messagesCount:
-                assistantData.chat.messagesCount,
-            });
-          }
+        if (assistantData?.chat) {
+          updateChatInList(
+            assistantData.chat
+          );
         }
 
         setStream("");
+
+        return completion;
       } catch (error) {
         console.error(
           "sendMessage:",
           error
         );
+
+        /*
+         * Keep the error visible in the console,
+         * but don't permanently leave streaming text
+         * in the UI.
+         */
+        setStream("");
+
+        throw error;
       } finally {
         setIsLoading(false);
       }
     },
     [
       activeChatId,
-      messages,
       activeEngine,
       systemPrompt,
       AIstate,
-      addMessage,
+      messages,
       saveMessage,
       setIsLoading,
       updateChatInList,

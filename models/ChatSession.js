@@ -18,8 +18,8 @@ const MessageSchema = new mongoose.Schema(
       default: Date.now,
     },
 
-    // The engine that generated this assistant response.
-    // User/system messages don't need an engine.
+    // Only meaningful for assistant messages.
+    // Records the engine that actually generated the response.
     engine: {
       type: String,
       default: null,
@@ -99,7 +99,7 @@ const ChatSessionSchema = new mongoose.Schema({
     index: true,
   },
 
-  // Engine currently selected for this conversation.
+  // Engine selected for the next response.
   currentEngine: {
     type: String,
     required: true,

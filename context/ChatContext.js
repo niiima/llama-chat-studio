@@ -2,685 +2,598 @@ import {
   createContext,
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 
-const ChatContext = createContext({});
+const ChatContext = createContext(null);
 
 export function ChatProvider({ children }) {
-  /*
-   * ==========================================
-   * STATE
-   * ==========================================
-   */
-
-  // Lightweight chat list for the sidebar.
   const [chats, setChats] = useState([]);
+  const [activeChatId, setActiveChatId] = useState(null);
+  const [activeChat, setActiveChat] = useState(null);
+  const [messages, setMessages] = useState([]);
 
-  // MongoDB _id of the active conversation.
-  const [activeChatId, setActiveChatId] =
-    useState(null);
+  const [isLoadingChats, setIsLoadingChats] = useState(true);
+  const [isLoadingConversation, setIsLoadingConversation] =
+    useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Full selected ChatSession.
-  const [activeChat, setActiveChat] =
-    useState(null);
-
-  // Messages displayed in the active conversation.
-  const [messages, setMessages] =
-    useState([]);
-
-  const [isLoading, setIsLoading] =
+  /*
+   * Global UI preference.
+   *
+   * This is intentionally NOT part of ChatContext.
+   * Markdown is a UI preference, not conversation data.
+   */
+  const [isMarkdownFormatEnabled, setIsMarkdownFormatEnabled] =
     useState(false);
 
-  const [isLoadingChats, setIsLoadingChats] =
-    useState(true);
+  // ==========================================
+  // LOAD ALL CHATS
+  // ==========================================
 
-  const [
-    isLoadingConversation,
-    setIsLoadingConversation,
-  ] = useState(false);
+  const loadChats = useCallback(async () => {
+    setIsLoadingChats(true);
 
-  const [
-    isMarkdownFormatEnabled,
-    setIsMarkdownFormatEnabled,
-  ] = useState(false);
+    try {
+      const response = await fetch("/api/chats");
 
-  /*
-   * ==========================================
-   * LOAD CHAT LIST
-   * ==========================================
-   */
-
-  const loadChats = useCallback(
-    async () => {
-      setIsLoadingChats(true);
-
-      try {
-        const response =
-          await fetch("/api/chats");
-
-        const data =
-          await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            data.message ||
-              "Failed to load chats"
-          );
-        }
-
-        const loadedChats =
-          data.chats || [];
-
-        setChats(loadedChats);
-
-        return loadedChats;
-      } catch (error) {
-        console.error(
-          "Failed to load chats:",
-          error
-        );
-
-        setChats([]);
-
-        return [];
-      } finally {
-        setIsLoadingChats(false);
-      }
-    },
-    []
-  );
-
-  /*
-   * ==========================================
-   * LOAD ONE CHAT
-   * ==========================================
-   *
-   * GET /api/chats/:chatId
-   *
-   * The API returns the complete ChatSession,
-   * including settings and messages.
-   */
-
-  const loadChat = useCallback(
-    async (chatId) => {
-      if (!chatId) {
-        setActiveChat(null);
-        setActiveChatId(null);
-        setMessages([]);
-        return null;
+      if (!response.ok) {
+        throw new Error("Failed to load chats");
       }
 
-      setIsLoadingConversation(true);
+      const data = await response.json();
 
-      try {
-        const response =
-          await fetch(
-            `/api/chats/${chatId}`
-          );
+      const loadedChats = data.chats || [];
 
-        const data =
-          await response.json();
+      setChats(loadedChats);
 
-        if (!response.ok) {
-          throw new Error(
-            data.message ||
-              "Failed to load chat"
-          );
-        }
+      return loadedChats;
+    } catch (error) {
+      console.error("loadChats:", error);
+      throw error;
+    } finally {
+      setIsLoadingChats(false);
+    }
+  }, []);
 
-        const chat = data.chat;
+  // ==========================================
+  // LOAD ONE CHAT
+  // ==========================================
 
-        if (!chat) {
-          throw new Error(
-            "Chat data is missing"
-          );
-        }
+  const loadChat = useCallback(async (chatId) => {
+    if (!chatId) return null;
 
-        const id =
-          chat._id.toString();
+    setIsLoadingConversation(true);
 
-        setActiveChatId(id);
-        setActiveChat(chat);
-        setMessages(
-          chat.messages || []
-        );
+    try {
+      const response = await fetch(
+        `/api/chats/${chatId}`
+      );
 
-        return chat;
-      } catch (error) {
-        console.error(
-          "Failed to load chat:",
-          error
-        );
-
-        setActiveChat(null);
-        setActiveChatId(null);
-        setMessages([]);
-
-        return null;
-      } finally {
-        setIsLoadingConversation(false);
+      if (!response.ok) {
+        throw new Error("Failed to load conversation");
       }
-    },
-    []
-  );
 
-  /*
-   * ==========================================
-   * SELECT CHAT
-   * ==========================================
-   */
+      const data = await response.json();
+
+      const chat = data.chat;
+
+      setActiveChatId(chat._id);
+      setActiveChat(chat);
+      setMessages(chat.messages || []);
+
+      return chat;
+    } catch (error) {
+      console.error("loadChat:", error);
+      throw error;
+    } finally {
+      setIsLoadingConversation(false);
+    }
+  }, []);
+
+  // ==========================================
+  // SELECT CHAT
+  // ==========================================
 
   const selectChat = useCallback(
     async (chatId) => {
       if (!chatId) return;
 
+      // Avoid unnecessary reload.
+      if (chatId === activeChatId && activeChat) {
+        return activeChat;
+      }
+
+      // Immediately clear the old conversation from the UI.
       setMessages([]);
       setActiveChat(null);
-      setIsMarkdownFormatEnabled(false);
+      setActiveChatId(chatId);
 
       return loadChat(chatId);
     },
-    [loadChat]
+    [activeChatId, activeChat, loadChat]
   );
 
-  /*
-   * ==========================================
-   * CREATE CHAT
-   * ==========================================
-   *
-   * POST /api/chats
-   */
+  // ==========================================
+  // CREATE CHAT
+  // ==========================================
 
   const createChat = useCallback(
-    async (
-      engine,
-      settings = {}
-    ) => {
-      if (!engine) {
-        console.error(
-          "No engine provided"
-        );
-        return null;
-      }
-
-      const startingEngine =
+    async (engine, settings = {}) => {
+      const currentEngine =
         typeof engine === "string"
           ? engine
           : engine?.key;
 
-      if (!startingEngine) {
-        console.error(
-          "Invalid engine:",
-          engine
-        );
-        return null;
-      }
-
-      try {
-        const response =
-          await fetch("/api/chats", {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              startingEngine,
-              settings,
-            }),
-          });
-
-        const data =
-          await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            data.message ||
-              data.error ||
-              "Failed to create chat"
-          );
-        }
-
-        const newChat =
-          data.chat;
-
-        /*
-         * New chat becomes active immediately.
-         */
-        setChats((prev) => [
-          newChat,
-          ...prev,
-        ]);
-
-        setActiveChatId(
-          newChat._id
-        );
-
-        setActiveChat(newChat);
-
-        setMessages([]);
-
-        setIsMarkdownFormatEnabled(
-          false
-        );
-
-        return newChat;
-      } catch (error) {
-        console.error(
-          "Failed to create chat:",
-          error
-        );
-
-        return null;
-      }
-    },
-    []
-  );
-
-  /*
-   * ==========================================
-   * ADD MESSAGE LOCALLY
-   * ==========================================
-   */
-
-  const addMessage = useCallback(
-    (message) => {
-      setMessages((prev) => [
-        ...prev,
-        message,
-      ]);
-    },
-    []
-  );
-
-  /*
-   * ==========================================
-   * SAVE MESSAGE
-   * ==========================================
-   *
-   * POST /api/chats/:chatId/messages
-   */
-
-  const saveMessage = useCallback(
-    async (message) => {
-      if (!activeChatId) {
+      if (!currentEngine) {
         throw new Error(
-          "No active chat"
+          "An engine is required to create a chat"
         );
       }
 
-      const response =
-        await fetch(
-          `/api/chats/${activeChatId}/messages`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
-            body: JSON.stringify({
-              role: message.role,
-              content:
-                message.content,
-              timestamp:
-                message.timestamp,
-              engine:
-                message.engine,
-            }),
-          }
-        );
-
-      const data =
-        await response.json();
+      const response = await fetch("/api/chats", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          currentEngine,
+          settings,
+        }),
+      });
 
       if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+
         throw new Error(
-          data.message ||
-            "Failed to save message"
+          data.message || "Failed to create chat"
         );
       }
 
-      const savedMessage =
-        data.message;
+      const data = await response.json();
+      const chat = data.chat;
 
-      setMessages((prev) => [
-        ...prev,
-        savedMessage,
+      // Newest conversation goes first.
+      setChats((previous) => [
+        chat,
+        ...previous.filter(
+          (item) => item._id !== chat._id
+        ),
       ]);
 
+      setActiveChatId(chat._id);
+      setActiveChat(chat);
+      setMessages([]);
+
+      return chat;
+    },
+    []
+  );
+
+  // ==========================================
+  // DELETE CHAT
+  // ==========================================
+
+  const deleteChat = useCallback(
+    async (chatId) => {
+      if (!chatId) return;
+
+      const response = await fetch(
+        `/api/chats/${chatId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+
+        throw new Error(
+          data.message || "Failed to delete chat"
+        );
+      }
+
       /*
-       * Synchronize sidebar and active chat.
+       * Remove it from the sidebar.
+       */
+      setChats((previous) =>
+        previous.filter(
+          (chat) => chat._id !== chatId
+        )
+      );
+
+      /*
+       * If we deleted the active conversation,
+       * select another one.
+       */
+      if (chatId === activeChatId) {
+        const remainingChats = chats.filter(
+          (chat) => chat._id !== chatId
+        );
+
+        if (remainingChats.length > 0) {
+          await loadChat(remainingChats[0]._id);
+        } else {
+          setActiveChatId(null);
+          setActiveChat(null);
+          setMessages([]);
+        }
+      }
+
+      return true;
+    },
+    [activeChatId, chats, loadChat]
+  );
+
+  // ==========================================
+  // ADD MESSAGE LOCALLY
+  // ==========================================
+
+  const addMessage = useCallback((message) => {
+    if (!message) return;
+
+    setMessages((previous) => [
+      ...previous,
+      message,
+    ]);
+  }, []);
+
+  // ==========================================
+  // SAVE MESSAGE
+  // ==========================================
+
+  const saveMessage = useCallback(
+    async ({
+      role,
+      content,
+      timestamp,
+      engine,
+    }) => {
+      if (!activeChatId) {
+        throw new Error("No active chat");
+      }
+
+      const body = {
+        role,
+        content,
+        timestamp:
+          timestamp || new Date().toISOString(),
+      };
+
+      /*
+       * Engine is only sent for assistant messages.
+       */
+      if (role === "assistant") {
+        body.engine = engine;
+      }
+
+      const response = await fetch(
+        `/api/chats/${activeChatId}/messages`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(body),
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+
+        throw new Error(
+          data.message || "Failed to save message"
+        );
+      }
+
+      const data = await response.json();
+
+      if (data.message) {
+        setMessages((previous) => [
+          ...previous,
+          data.message,
+        ]);
+      }
+
+      /*
+       * The API may have changed the title after the
+       * first user message.
        */
       if (data.chat) {
-        setChats((prev) =>
-          prev.map((chat) =>
+        setChats((previous) =>
+          previous.map((chat) =>
             chat._id === activeChatId
               ? {
                   ...chat,
-                  title:
-                    data.chat.title ??
-                    chat.title,
-                  updatedAt:
-                    data.chat.updatedAt ??
-                    chat.updatedAt,
-                  messagesCount:
-                    data.chat
-                      .messagesCount ??
-                    chat.messagesCount,
+                  ...data.chat,
                 }
               : chat
           )
         );
 
-        setActiveChat((prev) =>
-          prev
+        setActiveChat((previous) =>
+          previous
             ? {
-                ...prev,
-                title:
-                  data.chat.title ??
-                  prev.title,
-                updatedAt:
-                  data.chat.updatedAt ??
-                  prev.updatedAt,
-                messages: [
-                  ...(prev.messages ||
-                    []),
-                  savedMessage,
-                ],
+                ...previous,
+                ...data.chat,
               }
-            : prev
+            : previous
         );
       }
 
-      return savedMessage;
+      return data;
     },
     [activeChatId]
   );
 
-  /*
-   * ==========================================
-   * UPDATE SIDEBAR CHAT
-   * ==========================================
-   */
+  // ==========================================
+  // UPDATE CHAT IN SIDEBAR
+  // ==========================================
 
-  const updateChatInList =
-    useCallback(
-      (updatedChat) => {
-        if (!updatedChat) return;
+  const updateChatInList = useCallback(
+    (chatUpdate) => {
+      if (!chatUpdate?._id) return;
 
-        const id =
-          updatedChat._id ??
-          updatedChat.chatId;
+      setChats((previous) =>
+        previous.map((chat) =>
+          chat._id === chatUpdate._id
+            ? {
+                ...chat,
+                ...chatUpdate,
+              }
+            : chat
+        )
+      );
+    },
+    []
+  );
 
-        if (!id) return;
+  // ==========================================
+  // UPDATE ACTIVE CHAT SETTINGS
+  // ==========================================
 
-        setChats((prev) =>
-          prev.map((chat) =>
-            chat._id === id
-              ? {
-                  ...chat,
-                  title:
-                    updatedChat.title ??
-                    chat.title,
-                  updatedAt:
-                    updatedChat.updatedAt ??
-                    chat.updatedAt,
-                  messagesCount:
-                    updatedChat.messagesCount ??
-                    chat.messagesCount,
-                }
-              : chat
-          )
+  const updateActiveChatSettings = useCallback(
+    async (settings) => {
+      if (!activeChatId) return;
+
+      const response = await fetch(
+        `/api/chats/${activeChatId}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            settings,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+
+        throw new Error(
+          data.message ||
+            "Failed to update chat settings"
         );
-      },
-      []
-    );
+      }
+
+      const data = await response.json();
+
+      if (data.chat) {
+        setActiveChat(data.chat);
+
+        updateChatInList({
+          _id: data.chat._id,
+          title: data.chat.title,
+          currentEngine: data.chat.currentEngine,
+          updatedAt: data.chat.updatedAt,
+        });
+      }
+
+      return data.chat;
+    },
+    [activeChatId, updateChatInList]
+  );
+
+  // ==========================================
+  // UPDATE CURRENT ENGINE
+  // ==========================================
+
+  const updateCurrentEngine = useCallback(
+    async (engine) => {
+      if (!activeChatId) return;
+
+      const currentEngine =
+        typeof engine === "string"
+          ? engine
+          : engine?.key;
+
+      if (!currentEngine) {
+        throw new Error("Engine is required");
+      }
+
+      const response = await fetch(
+        `/api/chats/${activeChatId}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            currentEngine,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+
+        throw new Error(
+          data.message ||
+            "Failed to update current engine"
+        );
+      }
+
+      const data = await response.json();
+
+      if (data.chat) {
+        setActiveChat(data.chat);
+
+        updateChatInList({
+          _id: data.chat._id,
+          currentEngine: data.chat.currentEngine,
+          updatedAt: data.chat.updatedAt,
+        });
+      }
+
+      return data.chat;
+    },
+    [activeChatId, updateChatInList]
+  );
+
+  // ==========================================
+  // UPDATE TITLE
+  // ==========================================
+
+  const updateChatTitle = useCallback(
+    async (title) => {
+      if (!activeChatId) return;
+
+      const response = await fetch(
+        `/api/chats/${activeChatId}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            title,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+
+        throw new Error(
+          data.message ||
+            "Failed to update chat title"
+        );
+      }
+
+      const data = await response.json();
+
+      if (data.chat) {
+        setActiveChat(data.chat);
+
+        updateChatInList({
+          _id: data.chat._id,
+          title: data.chat.title,
+          updatedAt: data.chat.updatedAt,
+        });
+      }
+
+      return data.chat;
+    },
+    [activeChatId, updateChatInList]
+  );
+
+  // ==========================================
+  // CLEAR UI
+  // ==========================================
 
   /*
-   * ==========================================
-   * UPDATE ACTIVE CHAT SETTINGS
-   * ==========================================
+   * This intentionally does NOT delete messages
+   * from MongoDB.
    *
-   * PATCH /api/chats/:chatId
+   * It only clears the local UI.
    */
+  const clearChat = useCallback(() => {
+    setMessages([]);
+  }, []);
 
-  const updateActiveChatSettings =
-    useCallback(
-      async (settings) => {
-        if (!activeChatId) {
-          console.error(
-            "No active chat"
-          );
-          return null;
-        }
-
-        try {
-          const response =
-            await fetch(
-              `/api/chats/${activeChatId}`,
-              {
-                method: "PATCH",
-                headers: {
-                  "Content-Type":
-                    "application/json",
-                },
-                body: JSON.stringify({
-                  settings,
-                }),
-              }
-            );
-
-          const data =
-            await response.json();
-
-          if (!response.ok) {
-            throw new Error(
-              data.message ||
-                "Failed to update chat settings"
-            );
-          }
-
-          const updatedChat =
-            data.chat;
-
-          /*
-           * Update sidebar copy.
-           */
-          setChats((prev) =>
-            prev.map((chat) =>
-              chat._id === activeChatId
-                ? {
-                    ...chat,
-                    title:
-                      updatedChat.title ??
-                      chat.title,
-                    updatedAt:
-                      updatedChat.updatedAt ??
-                      chat.updatedAt,
-                  }
-                : chat
-            )
-          );
-
-          /*
-           * Update full active chat.
-           */
-          setActiveChat((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  ...updatedChat,
-                }
-              : updatedChat
-          );
-
-          return updatedChat;
-        } catch (error) {
-          console.error(
-            "Failed to update active chat settings:",
-            error
-          );
-
-          return null;
-        }
-      },
-      [activeChatId]
-    );
-
-  /*
-   * ==========================================
-   * DELETE CHAT
-   * ==========================================
-   */
-
-  const deleteChat =
-    useCallback(
-      async (chatId) => {
-        if (!chatId) return false;
-
-        try {
-          const response =
-            await fetch(
-              `/api/chats/${chatId}`,
-              {
-                method: "DELETE",
-              }
-            );
-
-          const data =
-            await response
-              .json()
-              .catch(() => ({}));
-
-          if (!response.ok) {
-            throw new Error(
-              data.message ||
-                "Failed to delete chat"
-            );
-          }
-
-          setChats((prev) =>
-            prev.filter(
-              (chat) =>
-                chat._id !== chatId
-            )
-          );
-
-          if (
-            activeChatId === chatId
-          ) {
-            setActiveChatId(null);
-            setActiveChat(null);
-            setMessages([]);
-          }
-
-          return true;
-        } catch (error) {
-          console.error(
-            "Failed to delete chat:",
-            error
-          );
-
-          return false;
-        }
-      },
-      [activeChatId]
-    );
-
-  /*
-   * ==========================================
-   * CLEAR CURRENT CHAT DISPLAY
-   * ==========================================
-   *
-   * This does NOT delete the database chat.
-   */
-
-  const clearChat =
-    useCallback(() => {
-      setMessages([]);
-    }, []);
-
-  /*
-   * ==========================================
-   * INITIAL LOAD
-   * ==========================================
-   */
+  // ==========================================
+  // INITIAL LOAD
+  // ==========================================
 
   useEffect(() => {
-    let cancelled = false;
+    loadChats().catch((error) => {
+      console.error(
+        "Initial chat loading:",
+        error
+      );
+    });
+  }, [loadChats]);
 
-    const initialize =
-      async () => {
-        const loadedChats =
-          await loadChats();
+  // ==========================================
+  // CONTEXT VALUE
+  // ==========================================
 
-        if (cancelled) return;
+  const value = useMemo(
+    () => ({
+      chats,
+      activeChatId,
+      activeChat,
+      messages,
 
-        if (
-          loadedChats.length > 0
-        ) {
-          /*
-           * /api/chats is sorted by
-           * updatedAt descending.
-           */
-          await selectChat(
-            loadedChats[0]._id
-          );
-        }
-      };
+      isLoading,
+      setIsLoading,
 
-    initialize();
+      isLoadingChats,
+      isLoadingConversation,
 
-    return () => {
-      cancelled = true;
-    };
-  }, [loadChats, selectChat]);
+      loadChats,
+      loadChat,
+      selectChat,
+      createChat,
+      deleteChat,
 
-  /*
-   * ==========================================
-   * PROVIDER
-   * ==========================================
-   */
+      addMessage,
+      saveMessage,
+
+      updateChatInList,
+      updateActiveChatSettings,
+      updateCurrentEngine,
+      updateChatTitle,
+
+      clearChat,
+
+      isMarkdownFormatEnabled,
+      setIsMarkdownFormatEnabled,
+
+      /*
+       * Compatibility with the old application.
+       */
+      chatHistory: messages,
+    }),
+    [
+      chats,
+      activeChatId,
+      activeChat,
+      messages,
+      isLoading,
+      isLoadingChats,
+      isLoadingConversation,
+      loadChats,
+      loadChat,
+      selectChat,
+      createChat,
+      deleteChat,
+      addMessage,
+      saveMessage,
+      updateChatInList,
+      updateActiveChatSettings,
+      updateCurrentEngine,
+      updateChatTitle,
+      clearChat,
+      isMarkdownFormatEnabled,
+    ]
+  );
 
   return (
-    <ChatContext.Provider
-      value={{
-        chats,
-
-        activeChat,
-        activeChatId,
-
-        messages,
-
-        // Backwards compatibility
-        // for ChatComponent.
-        chatHistory: messages,
-
-        isLoading,
-        setIsLoading,
-
-        isLoadingChats,
-        isLoadingConversation,
-
-        createChat,
-        selectChat,
-        loadChat,
-        loadChats,
-
-        deleteChat,
-        clearChat,
-
-        addMessage,
-        saveMessage,
-
-        updateChatInList,
-        updateActiveChatSettings,
-
-        isMarkdownFormatEnabled,
-        setIsMarkdownFormatEnabled,
-      }}
-    >
+    <ChatContext.Provider value={value}>
       {children}
     </ChatContext.Provider>
   );

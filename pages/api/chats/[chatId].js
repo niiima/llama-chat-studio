@@ -55,28 +55,29 @@ export default async function handler(req, res) {
         updatedAt: new Date(),
       };
 
-      // Update title
+      // ------------------------------------------
+      // Title
+      // ------------------------------------------
+
       if (typeof body.title === "string") {
-        update.title =
-          body.title.trim() || "New Chat";
+        update.title = body.title.trim() || "New Chat";
       }
 
-      // Support either:
-      // { engine: "..." }
-      // or:
-      // { startingEngine: "..." }
-
-      const engine =
-        body.startingEngine ?? body.engine;
+      // ------------------------------------------
+      // Current engine
+      // ------------------------------------------
 
       if (
-        typeof engine === "string" &&
-        engine.trim()
+        typeof body.currentEngine === "string" &&
+        body.currentEngine.trim()
       ) {
-        update.startingEngine = engine.trim();
+        update.currentEngine = body.currentEngine.trim();
       }
 
-      // Merge settings instead of replacing them
+      // ------------------------------------------
+      // Settings
+      // ------------------------------------------
+
       if (
         body.settings &&
         typeof body.settings === "object"
@@ -145,19 +146,12 @@ export default async function handler(req, res) {
       });
     }
 
-    // ==========================================
-    // METHOD NOT ALLOWED
-    // ==========================================
-
     return res.status(405).json({
       success: false,
       message: "Method not allowed",
     });
   } catch (error) {
-    console.error(
-      `/api/chats/${chatId}:`,
-      error
-    );
+    console.error(`/api/chats/${chatId}:`, error);
 
     return res.status(500).json({
       success: false,
