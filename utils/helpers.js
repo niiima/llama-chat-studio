@@ -1,4 +1,3 @@
-import { startsWith, isString, isArray } from "lodash";
 //import { qs } from "../uiHelpers";
 
 /**
@@ -180,11 +179,11 @@ export const $$ = (function () {
 
       if (isElement(selector)) return del(selector);
 
-      if (isArray(selector)) {
+            if (Array.isArray(selector)) {
         // detect wheter class or Id has pass as for each selector
         return selector.map((sel) => {
-          const el = isString(sel)
-            ? startsWith(sel, ".")
+          const el = typeof sel === "string"
+            ? sel.startsWith(".")
               ? document.querySelector(sel)
               : document.getElementById(sel)
             : sel;
@@ -193,8 +192,8 @@ export const $$ = (function () {
           }
         });
       } else {
-        var el = isString(selector)
-          ? startsWith(selector, ".")
+        var el = typeof selector === "string"
+          ? selector.startsWith(".")
             ? document.querySelector(selector)
             : document.getElementById(selector)
           : selector;
@@ -390,17 +389,17 @@ function isNode(o) {
 
 function getNode(selector) {
   if (isElement(selector)) return selector;
-  // if (isArray(selector)) {
+  // if (Array.isArray(selector)) {
   //     return selector.map(sel => {
-  //         const el = isString(sel) ? startsWith(sel, ".") ? document.querySelector(sel) : document.getElementById(sel) : sel;
+  //         const el = typeof sel === "string" ? sel.startsWith(".") ? document.querySelector(sel) : document.getElementById(sel) : sel;
   //         if (el) {
   //             del(el)
   //         }
   //     });
   // }
   else {
-    var el = isString(selector)
-      ? startsWith(selector, ".")
+    var el = typeof selector === "string"
+      ? selector.startsWith(".")
         ? document.querySelector(selector)
         : document.getElementById(selector)
       : selector;

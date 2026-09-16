@@ -5,7 +5,7 @@ import AuthContext from "../context/AuthContext.js";
 // import ChatContext from "../context/ChatContext.js";
 import AIContext from "../context/AIContext.js";
 import Sidebar from "../components/Sidebar/Sidebar.js";
-import ChatSettingsControl from "../components/AIManipulatingComponents/AISettingsControl.js";
+import ChatSettingsControl from "../components/AI/ChatSettingsControl.js";
 import Header from "../components/Header/Header.js";
 import UIContext from "../context/UIContext.js";
 import ColorfulButtonSet from "../components/Buttons/ColorfulButtons.js";

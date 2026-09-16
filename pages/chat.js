@@ -8,7 +8,7 @@ import Header from "../components/Header/Header.js";
 import { FlexItem } from "../components/Atoms/FlexItem.js";
 import { stripHTML } from "../utils/stringUtils";
 import Sidebar from "../components/Sidebar/Sidebar.js";
-import ChatSettingsControl from "../components/AIManipulatingComponents/AISettingsControl";
+import ChatSettingsControl from "../components/AI/ChatSettingsControl";
 //import ColorBoxSelector from "../components/ColorBoxSelector/ColorBoxSelector.js";
 export default function MyPage() {
   const [prompt, setPrompt] = useState("");

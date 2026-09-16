@@ -5,7 +5,7 @@ import { experimentalEngines as engines } from "../model/model.js";
 import ChatContext from "../context/ChatContext.js";
 import AIContext from "../context/AIContext.js";
 import Sidebar from "../components/Sidebar/Sidebar.js";
-import ChatSettingsControl from "../components/AIManipulatingComponents/AISettingsControl.js";
+import ChatSettingsControl from "../components/AI/ChatSettingsControl.js";
 import Header from "../components/Header/Header.js";
 import UIContext from "../context/UIContext.js";
 import { FlexItem } from "../components/Atoms/FlexItem.js";
@@ -14,10 +14,10 @@ import styled from "styled-components";
 import OrdinaryButton from "../components/Buttons/OrdinaryButton";
 import { MdDeleteSweep } from "react-icons/md";
 import { GiStopSign } from "react-icons/gi";
-import ModeSelector from "../components/AIManipulatingComponents/ModeSelector.js";
+import ModeSelector from "../components/AI/ModeSelector.js";
 import dynamic from "next/dynamic";
-import SystemPromptTextArea from "../components/AIManipulatingComponents/SystemPromptTextArea";
-import EngineSelector from "../components/AIManipulatingComponents/EngineSelector.js";
+import SystemPromptTextArea from "../components/AI/SystemPromptTextArea";
+import EngineSelector from "../components/AI/EngineSelector.js";
 
 const ChatComponent = dynamic(() => import("../components/ChatComponent"), {
   loading: () => (
@@ -27,7 +27,7 @@ const ChatComponent = dynamic(() => import("../components/ChatComponent"), {
   ),
 });
 const ActSelector = dynamic(
-  () => import("../components/AIManipulatingComponents/ActSelector.js"),
+  () => import("../components/AI/ActSelector.js"),
   {
     loading: () => (
       <div
