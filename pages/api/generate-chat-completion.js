@@ -5,32 +5,45 @@ export const config = {
 };
 
 const handler = async (req) => {
-  const {
-    messages,
-    engine,
-    max_tokens,
-    temperature,
-    top_p,
-    frequency_penalty,
-    presence_penalty,
-  } = await req.json();
+  const body = await req.json();
+  
+  if (!body) {
+      return new Response(JSON.stringify({ error: "No body provided" }), {
+          headers: { "Content-Type": "application/json" },
+      });
+  }
+  
+  const { messages, ...rest } = body; // Destructure to separate messages array
 
-  console.log(messages);
+
+  // 2. Prepare Payload for AI call
   const payload = {
-    model: engine,
     messages: messages,
-    temperature: temperature,
-    top_p: top_p,
-    frequency_penalty: frequency_penalty,
-    presence_penalty: presence_penalty,
-    max_tokens: max_tokens,
+    ...rest,
     stream: true,
-    n: 1,
-    stop: ["assistant:", "user:"],
+    chat_template_kwargs: {
+      enable_thinking: true
+    }
   };
 
+  // 3. Execute AI Streaming
   const stream = await OpenAIChatStream(payload);
-  return new Response(stream);
+
+  // We need to buffer the stream to get the final response for saving.
+  // Since we are streaming, we have to return the stream immediately for the UI,
+  // but we'll also read and save the content *during* the stream process if possible,
+  // or rely on the client to capture and send the final response to a new save endpoint.
+  // For simplicity in this first pass, we will focus on making the API call work,
+  // and then address saving the final response.
+
+  // For now, we return the stream as before, assuming the client will handle the final state.
+  // We will modify the client next to capture and send the final state.
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-cache",
+    },
+  });
 };
 
 export default handler;

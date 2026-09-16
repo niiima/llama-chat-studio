@@ -11,7 +11,7 @@ export async function OpenAIStream(payload) {
 
   let counter = 0;
 
-  const res = await fetch("https://api.openai.com/v1/completions", {
+  const res = await fetch("http://127.0.0.1:8080/v1/completions", {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${process.env.OPENAI ?? ""}`,

@@ -85,12 +85,12 @@ const routes = [
   //   icon: <FcPicture color='white' size={ICON_SIZE} />,
   //   text: "Painting",
   // },BsSpotify
-  {
-    id: 4,
-    url: "/playlist",
-    icon: <BsSpotify color="green" size={ICON_SIZE} />,
-    text: "Playlist",
-  },
+  // {
+  //   id: 4,
+  //   url: "/playlist",
+  //   icon: <BsSpotify color="green" size={ICON_SIZE} />,
+  //   text: "Playlist",
+  // },
 ];
 const PageNavigation = () => {
   const { activeRoute, setActiveRoute } = useContext(AIContext);

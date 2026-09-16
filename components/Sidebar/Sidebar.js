@@ -1,61 +1,65 @@
 import React from "react";
-// import Items from "./Items";
 import styled from "styled-components";
 import { useSpring, animated } from "react-spring";
-import { AnimatedBox } from "../Atoms/AnimatedBox";
-const Wrapper = styled(AnimatedBox)`
-  /* background-color: #65f9c1; */
 
+const Wrapper = styled(animated.aside)`
   position: fixed;
+
   top: 8svh;
-  display: flex;
+  left: 0;
+
   width: 20em;
-  min-height: 92svh;
-  /* border-radius: 2px; */
-  /* background-color: lightskyblue; */
-  background: linear-gradient(135deg, #11e7df 0%, #39f 50%, #b490ca 100%);
+  height: 92svh;
+
+  display: flex;
   flex-direction: column;
-  padding: 0;
-  margin-left: 10;
+
   z-index: 100;
+
+  overflow: hidden;
+
+  background: linear-gradient(
+    135deg,
+    #11e7df 0%,
+    #39f 50%,
+    #b490ca 100%
+  );
+
   & > div {
-    height: 92svh;
+    height: 100%;
     overflow-y: auto;
-  }
-  & > div::-webkit-scrollbar-track {
-    -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
-    background: linear-gradient(320deg, #11e7df 0%, #39f 50%, #b490ca 100%);
   }
 
   & > div::-webkit-scrollbar {
-    width: 10px;
-    background-color: #f5f5f5;
+    width: 8px;
+  }
+
+  & > div::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.12);
   }
 
   & > div::-webkit-scrollbar-thumb {
-    background-color: #0ae;
-
-    background-image: -webkit-gradient(
-      linear,
-      0 0,
-      0 100%,
-      color-stop(0.5, rgba(255, 255, 255, 0.2)),
-      color-stop(0.5, transparent),
-      to(transparent)
-    );
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 8px;
   }
 `;
-const Sidebar = ({ show, children }) => {
-  const { left, opacity } = useSpring({
-    from: { left: "-100%", opacity: "0" },
-    left: show ? "0" : "-100%",
-    opacity: show ? "1" : "0",
+
+export default function Sidebar({
+  show,
+  children,
+}) {
+  const style = useSpring({
+    left: show ? "0%" : "-100%",
+    opacity: show ? 1 : 0,
+    config: {
+      tension: 280,
+      friction: 30,
+    },
   });
+
   return (
-    <Wrapper style={{ left: left, opacity: opacity }}>
+    <Wrapper style={style}>
       <div>{children}</div>
     </Wrapper>
   );
-};
-
-export default Sidebar;
+}

@@ -1,244 +1,525 @@
-import { useContext, useEffect } from "react";
+import { useContext } from "react";
+
 import {
   MainContainer,
   ChatContainer,
   MessageList,
   Message,
-  MessageGroup,
-  MessageCustomContent,
-  MessageSeparator,
   MessageInput,
-  Conversation,
   Avatar,
-  Search,
-  ConversationList,
-  Sidebar,
   TypingIndicator,
 } from "@chatscope/chat-ui-kit-react";
+
 import ChatContext from "../context/ChatContext";
+
+import ChatControls from "./ChatControls";
+
 import { Typography } from "./Atoms/Typography";
+import { Box } from "./Atoms/Box";
+
 import { AiOutlineCopy } from "react-icons/ai";
 import { BsMarkdown } from "react-icons/bs";
 
 import moment from "moment";
+import ReactMarkdown from "react-markdown";
+
 import {
   userAvatarLogo,
   gptAvatarLogo,
-  gptBlueAvatarLogo,
 } from "../model/icons";
-import { Box } from "../components/Atoms/Box";
-import parse from "html-react-parser";
-import ReactMarkdown from "react-markdown";
 
-const copyToClipboard = (text) => {
-  navigator.clipboard.writeText(text);
+const copyToClipboard = async (text) => {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (error) {
+    console.error(
+      "Failed to copy:",
+      error
+    );
+  }
 };
 
-const ChatComponent = ({
+export default function ChatComponent({
   handleSendMessage,
   stream,
   prompt,
-  handleOnClick,
-}) => {
+
+  isLoadingConversation,
+
+  engines,
+  activeEngine,
+  onEngineChange,
+
+  systemPrompt,
+  onSystemPromptChange,
+  onSystemPromptBlur,
+
+  mode,
+  act,
+  onModeChange,
+  onActChange,
+}) {
   const {
-    chatHistory,
+    activeChatId,
+    activeChat,
+    messages,
     isLoading,
+
     isMarkdownFormatEnabled,
     setIsMarkdownFormatEnabled,
   } = useContext(ChatContext);
 
-  useEffect(() => {
-    setIsMarkdownFormatEnabled(false);
-  }, [isMarkdownFormatEnabled]);
-
-  const chatList = [];
-  let len = chatHistory.length - 1;
-  chatHistory.forEach((h, i) => {
-    chatList.push({
-      id: h.id,
-      message: h.prompt,
-      sentTime: h.prompt_timestamp.toLocaleString(),
-      direction: "incoming",
-      // tokens: h.prompt_tokens,
-      engine: h.engine,
-      // price: h.prompt_price,
-      sender: "You",
-      position: "normal",
-      showMarkdown: false, // h.showMarkdown,
-    });
-    chatList.push({
-      id: h.chatId,
-      message: h.completion,
-      sentTime: h.completion_timestamp.toLocaleString(),
-      direction: "outgoing",
-      // tokens: h.completion_tokens,
-      engine: h.engine,
-      // price: h.completion_price,
-      sender: "GPT",
-      position: i === len ? "last" : "normal",
-      showMarkdown: h.showMarkdown,
-    });
-  });
-
-  //console.log(chatList);
-
   return (
     <div
-      style={{ position: "relative", height: "92svh" }}
-      onClick={() => handleOnClick()}>
-      <MainContainer responsive>
-        <Sidebar position='left' scrollable={true} loading={isLoading}>
-          <Search placeholder='Search...' />
-          <ConversationList>
-            <Conversation
-              name='GPT Assistant'
-              lastSenderName='conversation:'
-              info='Chatting'>
-              <Avatar
-                src={gptAvatarLogo}
-                name='GPT Assistant'
-                status='available'
-              />
-            </Conversation>
-          </ConversationList>
-        </Sidebar>
-        <ChatContainer>
-          <MessageList
-            typingIndicator={
-              isLoading ? <TypingIndicator content={"GPT is responding"} /> : ""
-            }>
-            {chatList.map((msg, i) => {
-              const start = moment(new Date(msg.sentTime));
-              if (msg.message.length > 0)
-                return (
-                  <Message key={msg.id} model={msg} avatarPosition='cl'>
+      className="chat-shell"
+      style={{
+        position: "relative",
+        height: "100%",
+        minHeight: 0,
+
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent:
+            "space-between",
+
+          padding: "9px 14px",
+
+          borderBottom:
+            "1px solid rgba(0,0,0,.08)",
+
+          flexShrink: 0,
+        }}
+      >
+        <div
+          style={{
+            minWidth: 0,
+          }}
+        >
+          <div
+            style={{
+              fontWeight: 600,
+
+              overflow: "hidden",
+              textOverflow:
+                "ellipsis",
+              whiteSpace:
+                "nowrap",
+            }}
+          >
+            {activeChat?.title ||
+              "New Chat"}
+          </div>
+
+          {activeChat?.currentEngine && (
+            <div
+              style={{
+                marginTop: 2,
+
+                fontSize: "0.65rem",
+                opacity: 0.55,
+
+                overflow: "hidden",
+                textOverflow:
+                  "ellipsis",
+                whiteSpace:
+                  "nowrap",
+              }}
+            >
+              {activeChat.currentEngine}
+            </div>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={() =>
+            setIsMarkdownFormatEnabled(
+              (previous) =>
+                !previous
+            )
+          }
+          title={
+            isMarkdownFormatEnabled
+              ? "Disable Markdown"
+              : "Enable Markdown"
+          }
+          style={{
+            border: "none",
+            borderRadius: 6,
+
+            padding:
+              "5px 8px",
+
+            cursor: "pointer",
+
+            background:
+              isMarkdownFormatEnabled
+                ? "purple"
+                : "rgba(0,0,0,.08)",
+
+            color:
+              isMarkdownFormatEnabled
+                ? "white"
+                : "inherit",
+          }}
+        >
+          <BsMarkdown size={14} />
+        </button>
+      </div>
+
+      {/* Conversation */}
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          position: "relative",
+        }}
+      >
+        {isLoadingConversation ? (
+          <div
+            style={{
+              height: "100%",
+
+              display: "flex",
+              alignItems: "center",
+              justifyContent:
+                "center",
+
+              opacity: 0.55,
+            }}
+          >
+            Loading conversation...
+          </div>
+        ) : !activeChatId ? (
+          <div
+            style={{
+              height: "100%",
+
+              display: "flex",
+              alignItems: "center",
+              justifyContent:
+                "center",
+
+              textAlign: "center",
+
+              opacity: 0.55,
+              padding: 30,
+            }}
+          >
+            <div>
+              <h3>
+                Start a conversation
+              </h3>
+
+              <p>
+                Create a new chat from
+                the sidebar.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <MainContainer responsive>
+            <ChatContainer>
+              <MessageList
+                typingIndicator={
+                  isLoading ? (
+                    <TypingIndicator
+                      content="GPT is responding"
+                    />
+                  ) : undefined
+                }
+              >
+                {messages.map(
+                  (msg) => {
+                    const isUser =
+                      msg.role ===
+                      "user";
+
+                    if (
+                      !msg.content
+                    ) {
+                      return null;
+                    }
+
+                    const date =
+                      moment(
+                        msg.timestamp
+                      );
+
+                    return (
+                      <Message
+                        key={
+                          msg._id
+                        }
+                        model={{
+                          direction:
+                            isUser
+                              ? "incoming"
+                              : "outgoing",
+
+                          position:
+                            "normal",
+                        }}
+                        avatarPosition="cl"
+                      >
+                        <Message.CustomContent>
+                          <Typography
+                            fontSize={1}
+                            fontWeight={
+                              isUser
+                                ? "normal"
+                                : "bold"
+                            }
+                          >
+                            {isUser ? (
+                              msg.content
+                            ) : isMarkdownFormatEnabled ? (
+                              <ReactMarkdown>
+                                {
+                                  msg.content
+                                }
+                              </ReactMarkdown>
+                            ) : (
+                              msg.content
+                            )}
+                          </Typography>
+                        </Message.CustomContent>
+
+                        <Message.Footer
+                          sender={
+                            isUser
+                              ? "You"
+                              : "GPT"
+                          }
+                          sentTime={date.fromNow()}
+                        >
+                          <Box
+                            width="100%"
+                            spacing={0}
+                          >
+                            {!isUser && (
+                              <>
+                                <span
+                                  style={{
+                                    color:
+                                      "rgba(21,162,127,1)",
+                                    fontSize:
+                                      ".5rem",
+                                  }}
+                                >
+                                  {date.fromNow()}
+                                </span>
+
+                                {msg.engine && (
+                                  <span
+                                    style={{
+                                      color:
+                                        "orange",
+                                      fontSize:
+                                        ".5rem",
+                                      paddingLeft:
+                                        10,
+                                    }}
+                                  >
+                                    By{" "}
+                                    {
+                                      msg.engine
+                                    }
+                                  </span>
+                                )}
+                              </>
+                            )}
+
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              title="Copy message"
+                              style={{
+                                marginTop:
+                                  -2,
+                                marginLeft:
+                                  3,
+
+                                backgroundColor:
+                                  "lightskyblue",
+
+                                padding:
+                                  "2px 2px 1px 1px",
+
+                                borderRadius:
+                                  4,
+
+                                width: 15,
+                                height: 15,
+
+                                display:
+                                  "inline-flex",
+
+                                alignItems:
+                                  "center",
+                                justifyContent:
+                                  "center",
+
+                                cursor:
+                                  "pointer",
+                              }}
+                              onClick={() =>
+                                copyToClipboard(
+                                  msg.content
+                                )
+                              }
+                              onKeyDown={(
+                                event
+                              ) => {
+                                if (
+                                  event.key ===
+                                    "Enter" ||
+                                  event.key ===
+                                    " "
+                                ) {
+                                  copyToClipboard(
+                                    msg.content
+                                  );
+                                }
+                              }}
+                            >
+                              <AiOutlineCopy
+                                size={13}
+                                color="black"
+                              />
+                            </span>
+                          </Box>
+                        </Message.Footer>
+
+                        <Avatar
+                          src={
+                            isUser
+                              ? userAvatarLogo
+                              : gptAvatarLogo
+                          }
+                          name={
+                            isUser
+                              ? "User"
+                              : "GPT Assistant"
+                          }
+                        />
+                      </Message>
+                    );
+                  }
+                )}
+
+                {/* Temporary user message */}
+                {prompt &&
+                  stream && (
+                    <Message
+                      model={{
+                        direction:
+                          "incoming",
+                        position:
+                          "normal",
+                      }}
+                    >
+                      <Message.CustomContent>
+                        <Typography>
+                          {prompt}
+                        </Typography>
+                      </Message.CustomContent>
+
+                      <Avatar
+                        src={
+                          userAvatarLogo
+                        }
+                        name="User"
+                      />
+                    </Message>
+                  )}
+
+                {/* Streaming assistant */}
+                {stream && (
+                  <Message
+                    model={{
+                      direction:
+                        "outgoing",
+                      position:
+                        "last",
+                    }}
+                  >
                     <Message.CustomContent>
-                      <Typography
-                        fontSize={1}
-                        // lineHeight={1}
-                        // color={i % 2 ? "white" : "#333"}
-                        fontWeight={i % 2 ? "bold" : "normal"}>
-                        {/* {isMarkdownFormatEnabled ? ( */}
-                        {msg.showMarkdown ? (
-                          <ReactMarkdown>{msg.message}</ReactMarkdown>
+                      <Typography fontWeight="bold">
+                        {isMarkdownFormatEnabled ? (
+                          <ReactMarkdown>
+                            {stream}
+                          </ReactMarkdown>
                         ) : (
-                          msg.message
+                          stream
                         )}
                       </Typography>
                     </Message.CustomContent>
 
-                    <Message.Footer
-                      sender={msg.sender}
-                      sentTime={start.fromNow()}>
-                      <Box width={"100%"} spacing={0}>
-                        {i % 2 !== 0 && (
-                          <>
-                            <span
-                              style={{
-                                color: "rgba(21,162,127,1)",
-                                borderRadius: 3,
-                                fontSize: ".5rem",
-                              }}>
-                              {start.fromNow()}
-                            </span>
-                            <span
-                              style={{
-                                color: "orange",
-                                borderRadius: 3,
-                                textAlign: "right",
-                                fontSize: ".5rem",
-                                paddingLeft: 10,
-                              }}>
-                              {"By"} {msg.engine}
-                            </span>
-                          </>
-                        )}
-                        <span
-                          style={{
-                            marginTop: -2,
-                            marginLeft: 3,
-                            backgroundColor: "lightskyblue",
-                            padding: "2px 2px 1px 1px",
-                            borderRadius: 4,
-                            width: 15,
-                            height: 15,
-                          }}
-                          onClick={() => copyToClipboard(msg.message)}>
-                          <span
-                            style={{
-                              marginTop: -1,
-                              marginLeft: 1,
-                            }}>
-                            <AiOutlineCopy
-                              size={13}
-                              color={"black"}></AiOutlineCopy>
-                          </span>
-                        </span>
-                        <span
-                          style={{
-                            marginTop: -2,
-                            marginLeft: 3,
-                            backgroundColor: "purple",
-                            padding: "2px 2px 1px 1px",
-                            borderRadius: 4,
-                            width: 15,
-                            height: 15,
-                          }}
-                          onClick={() => {
-                            chatHistory.find(
-                              (massageItem) =>
-                                massageItem[
-                                  msg.sender === "GPT" ? "chatId" : "id"
-                                ] === msg.id
-                            ).showMarkdown = !msg.showMarkdown;
-                            setIsMarkdownFormatEnabled(true);
-                          }}>
-                          <span
-                            style={{
-                              marginTop: -1,
-                              marginLeft: 1,
-                            }}>
-                            <BsMarkdown size={14} color={"white"}></BsMarkdown>
-                          </span>
-                        </span>
-                      </Box>
-                    </Message.Footer>
-
-                    {/* <Avatar
-                      src={i % 2 === 0 ? userAvatarLogo : gptBlueAvatarLogo}
-                      name='GPT'
-                    /> */}
+                    <Avatar
+                      src={
+                        gptAvatarLogo
+                      }
+                      name="GPT Assistant"
+                    />
                   </Message>
-                );
-            })}
+                )}
+              </MessageList>
 
-            {prompt !== "" && stream !== "" ? (
-              <Message model={{ direction: "incoming" }}>
-                <Message.CustomContent>
-                  <Typography>{prompt}</Typography>
-                </Message.CustomContent>
-                <Avatar src={userAvatarLogo} name='User' />
-              </Message>
-            ) : (
-              ""
-            )}
-            {stream !== "" ? (
-              <Message model={{ direction: "outgoing" }}>
-                <Message.CustomContent>
-                  <Typography fontWeight={"bold"}>{stream}</Typography>
-                </Message.CustomContent>
-              </Message>
-            ) : (
-              ""
-            )}
-          </MessageList>
-          <MessageInput
-            placeholder='Ask anything from GPT. . .'
-            onSend={(val) => handleSendMessage(val)}
-          />
-        </ChatContainer>
-      </MainContainer>
+              <MessageInput
+                placeholder={
+                  activeChatId
+                    ? "Ask anything from GPT..."
+                    : "Create a new chat first..."
+                }
+                onSend={
+                  handleSendMessage
+                }
+                disabled={
+                  isLoading ||
+                  !activeChatId
+                }
+              />
+            </ChatContainer>
+          </MainContainer>
+        )}
+      </div>
+
+      {/* AI controls */}
+      <ChatControls
+        engines={engines}
+        activeEngine={activeEngine}
+        onEngineChange={
+          onEngineChange
+        }
+
+        systemPrompt={
+          systemPrompt
+        }
+        onSystemPromptChange={
+          onSystemPromptChange
+        }
+        onSystemPromptBlur={
+          onSystemPromptBlur
+        }
+
+        mode={mode}
+        act={act}
+
+        onModeChange={
+          onModeChange
+        }
+        onActChange={
+          onActChange
+        }
+      />
     </div>
   );
-};
-export default ChatComponent;
+}
