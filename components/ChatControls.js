@@ -217,19 +217,141 @@ const FieldLabel = styled.div`
   margin-bottom: 3px;
 `;
 
+const Toggle = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 3px 0;
+  cursor: pointer;
+  font: inherit;
+`;
+
+const ToggleTrack = styled.span`
+  position: relative;
+  width: 30px;
+  height: 17px;
+  border-radius: 999px;
+  background: ${({ active }) =>
+    active
+      ? "rgba(100, 80, 220, 0.65)"
+      : "rgba(0, 0, 0, 0.16)"};
+  transition: background 0.15s ease;
+`;
+
+const ToggleThumb = styled.span`
+  position: absolute;
+  top: 2px;
+  left: ${({ active }) =>
+    active ? "15px" : "2px"};
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: left 0.15s ease;
+`;
+
+const ToggleLabel = styled.span`
+  font-size: 0.72rem;
+  opacity: 0.7;
+  white-space: nowrap;
+`;
+
+// function BooleanControl({
+//   label,
+//   value = false,
+//   onChange,
+//   disabled = false,
+// }) {
+//   const handleClick = () => {
+//     if (typeof onChange !== "function") {
+//       return;
+//     }
+
+//     onChange(!value);
+//   };
+
+//   return (
+//     <Toggle
+//       type="button"
+//       disabled={disabled || typeof onChange !== "function"}
+//       onClick={handleClick}
+//       style={{
+//         opacity:
+//           disabled || typeof onChange !== "function"
+//             ? 0.4
+//             : 1,
+//         cursor:
+//           disabled || typeof onChange !== "function"
+//             ? "not-allowed"
+//             : "pointer",
+//       }}
+//     >
+//       <ToggleTrack active={value}>
+//         <ToggleThumb active={value} />
+//       </ToggleTrack>
+
+//       <ToggleLabel>
+//         {label}
+//       </ToggleLabel>
+//     </Toggle>
+//   );
+// }
+
+function BooleanControl({
+  label,
+  value = false,
+  onChange,
+  disabled = false,
+}) {
+  const handleClick = () => {
+    console.log(`[BooleanControl] ${label}:`, {
+      value,
+      hasOnChange: typeof onChange === "function",
+      disabled,
+    });
+
+    if (disabled || typeof onChange !== "function") {
+      return;
+    }
+
+    onChange(!value);
+  };
+
+  return (
+    <Toggle
+      type="button"
+      disabled={disabled}
+      onClick={handleClick}
+    >
+      <ToggleTrack active={value}>
+        <ToggleThumb active={value} />
+      </ToggleTrack>
+
+      <ToggleLabel>{label}</ToggleLabel>
+    </Toggle>
+  );
+}
+
 export default function ChatControls({
   engines,
   activeEngine,
   onEngineChange,
-
   systemPrompt,
   onSystemPromptChange,
   onSystemPromptBlur,
-
   mode,
   act,
   onModeChange,
   onActChange,
+
+  enableThinking,
+  showReasoning,
+  onThinkingChange,
+  onShowReasoningChange,
 }) {
   const [
     settingsOpen,
@@ -390,11 +512,11 @@ export default function ChatControls({
           </Field>
 
           {/* MODE + ACT */}
+
           <div
             style={{
               display: "grid",
-              gridTemplateColumns:
-                "1fr 1fr",
+              gridTemplateColumns: "1fr 1fr",
               gap: 8,
               marginTop: 8,
               marginBottom: 10,
@@ -412,27 +534,21 @@ export default function ChatControls({
                 }}
                 value={mode || ""}
                 onChange={(event) =>
-                  onModeChange(
-                    event.target.value
-                  )
+                  onModeChange(event.target.value)
                 }
               >
                 <option value="">
                   Default
                 </option>
-
                 <option value="chat">
                   Chat
                 </option>
-
                 <option value="coding">
                   Coding
                 </option>
-
                 <option value="reasoning">
                   Reasoning
                 </option>
-
                 <option value="creative">
                   Creative
                 </option>
@@ -451,27 +567,21 @@ export default function ChatControls({
                 }}
                 value={act || ""}
                 onChange={(event) =>
-                  onActChange(
-                    event.target.value
-                  )
+                  onActChange(event.target.value)
                 }
               >
                 <option value="">
                   Default
                 </option>
-
                 <option value="coder">
                   Coding Assistant
                 </option>
-
                 <option value="developer">
                   Senior Developer
                 </option>
-
                 <option value="assistant">
                   General Assistant
                 </option>
-
                 <option value="creative">
                   Creative Assistant
                 </option>
@@ -479,8 +589,32 @@ export default function ChatControls({
             </Field>
           </div>
 
-          {/* YOUR EXISTING LEVA CONTROL */}
+          {/* THINKING */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 18,
+              marginBottom: 10,
+              flexWrap: "wrap",
+            }}
+          >
+            <BooleanControl
+              label="Thinking"
+              value={enableThinking}
+              onChange={onThinkingChange}
+            />
+
+            <BooleanControl
+              label="Show reasoning"
+              value={showReasoning}
+              onChange={onShowReasoningChange}
+            />
+          </div>
+
+          {/* EXISTING LEVA CONTROL */}
           <ChatSettingsControl />
+
         </SettingsInner>
       </SettingsPanel>
     </Wrapper>

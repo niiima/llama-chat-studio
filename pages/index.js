@@ -115,6 +115,7 @@ export default function MyPage() {
     sendMessage,
   } = useChat({
     activeEngine,
+    activeChat,
     systemPrompt,
   });
 
@@ -132,47 +133,50 @@ export default function MyPage() {
     }
 
     try {
-      await createChat(
-        activeEngine.key,
-        {
-          systemPrompt:
-            systemPrompt || "",
+    await createChat(
+      activeEngine.key,
+      {
+        systemPrompt:
+          systemPrompt || "",
 
-          temperature:
-            AIstate.temperature ??
-            activeEngine.temperature ??
-            0.6,
+        temperature:
+          AIstate.temperature ??
+          activeEngine.temperature ??
+          0.6,
 
-          top_p:
-            AIstate.top_p ??
-            activeEngine.top_p ??
-            0.95,
+        top_p:
+          AIstate.top_p ??
+          activeEngine.top_p ??
+          0.95,
 
-          top_k:
-            AIstate.top_k ??
-            activeEngine.top_k ??
-            40,
+        top_k:
+          AIstate.top_k ??
+          activeEngine.top_k ??
+          40,
 
-          frequency_penalty:
-            AIstate.frequency_penalty ??
-            0,
+        frequency_penalty:
+          AIstate.frequency_penalty ??
+          0,
 
-          presence_penalty:
-            AIstate.presence_penalty ??
-            0,
+        presence_penalty:
+          AIstate.presence_penalty ??
+          0,
 
-          max_response_tokens:
-            AIstate.max_response_tokens ??
-            activeEngine.max_response_tokens ??
-            2048,
+        max_response_tokens:
+          AIstate.max_response_tokens ??
+          activeEngine.max_response_tokens ??
+          2048,
 
-          mode:
-            AIstate.mode || "",
+        mode:
+          AIstate.mode || "",
 
-          act:
-            AIstate.act || "",
-        }
-      );
+        act:
+          AIstate.act || "",
+
+        enableThinking: true,
+        showReasoning: true,
+      }
+    );
     } catch (error) {
       console.error(
         "handleNewChat:",
@@ -241,6 +245,104 @@ export default function MyPage() {
     } catch (error) {
       console.error(
         "Failed to save system prompt:",
+        error
+      );
+    }
+  };
+
+  // Reasoning handlers
+
+  const handleThinkingChange = async (value) => {
+    console.log(
+      ">>> handleThinkingChange called:",
+      value
+    );
+
+    try {
+      const updatedChat =
+        await updateActiveChatSettings({
+          enableThinking: value,
+        });
+
+      // console.log(
+      //   ">>> updated chat:",
+      //   updatedChat
+      // );
+    } catch (error) {
+      console.error(
+        "Failed to update thinking setting:",
+        error
+      );
+    }
+  };
+
+  const handleShowReasoningChange = async (value) => {
+    // console.log(
+    //   ">>> handleShowReasoningChange called:",
+    //   value
+    // );
+
+    try {
+      const updatedChat =
+        await updateActiveChatSettings({
+          showReasoning: value,
+        });
+
+      // console.log(
+      //   ">>> updated chat settings:",
+      //   updatedChat?.settings
+      // );
+
+      // console.log(
+      //   ">>> enableThinking:",
+      //   updatedChat?.settings?.enableThinking
+      // );
+
+      // console.log(
+      //   ">>> showReasoning:",
+      //   updatedChat?.settings?.showReasoning
+      // );
+    } catch (error) {
+      console.error(
+        "Failed to update reasoning visibility:",
+        error
+      );
+    }
+  };
+
+  // AI settings 
+
+  const handleModeChange = async (value) => {
+    setAIState((previous) => ({
+      ...previous,
+      mode: value,
+    }));
+
+    try {
+      await updateActiveChatSettings({
+        mode: value,
+      });
+    } catch (error) {
+      console.error(
+        "Failed to update mode:",
+        error
+      );
+    }
+  };
+
+  const handleActChange = async (value) => {
+    setAIState((previous) => ({
+      ...previous,
+      act: value,
+    }));
+
+    try {
+      await updateActiveChatSettings({
+        act: value,
+      });
+    } catch (error) {
+      console.error(
+        "Failed to update act:",
         error
       );
     }
@@ -323,18 +425,18 @@ export default function MyPage() {
           mode={AIstate.mode}
           act={AIstate.act}
 
-          onModeChange={(value) =>
-            setAIState((previous) => ({
-              ...previous,
-              mode: value,
-            }))
-          }
+          onModeChange={handleModeChange}
+          onActChange={handleActChange}
 
-          onActChange={(value) =>
-            setAIState((previous) => ({
-              ...previous,
-              act: value,
-            }))
+          enableThinking={
+            activeChat?.settings?.enableThinking ?? true
+          }
+          // showReasoning={
+          //   activeChat?.settings?.showReasoning ?? true
+          // }
+          onThinkingChange={handleThinkingChange}
+          onShowReasoningChange={
+            handleShowReasoningChange
           }
         />
       </main>

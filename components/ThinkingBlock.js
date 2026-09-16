@@ -9,11 +9,11 @@ import {
 export default function ThinkingBlock({
   reasoning,
   isStreaming = false,
+  visible = true,
 }) {
-  const [expanded, setExpanded] =
-    useState(false);
+  const [expanded, setExpanded] = useState(false);
 
-  if (!reasoning?.trim()) {
+  if (!visible || !reasoning?.trim()) {
     return null;
   }
 
@@ -30,9 +30,7 @@ export default function ThinkingBlock({
       <button
         type="button"
         onClick={() =>
-          setExpanded(
-            (previous) => !previous
-          )
+          setExpanded((previous) => !previous)
         }
         style={{
           width: "100%",
@@ -77,8 +75,7 @@ export default function ThinkingBlock({
             lineHeight: 1.6,
             opacity: 0.7,
             whiteSpace: "pre-wrap",
-            overflowWrap:
-              "anywhere",
+            overflowWrap: "anywhere",
           }}
         >
           {reasoning}

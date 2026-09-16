@@ -60,6 +60,11 @@ export default function ChatComponent({
   act,
   onModeChange,
   onActChange,
+
+  enableThinking,
+  // showReasoning,
+  onThinkingChange,
+  onShowReasoningChange,
 }) {
   const {
     activeChatId,
@@ -70,6 +75,9 @@ export default function ChatComponent({
     isMarkdownFormatEnabled,
     setIsMarkdownFormatEnabled,
   } = useContext(ChatContext);
+
+  const showReasoning =
+    activeChat?.settings?.showReasoning ?? true;
 
   return (
     <div
@@ -233,7 +241,7 @@ export default function ChatComponent({
                 typingIndicator={
                   isLoading ? (
                     <TypingIndicator
-                      content="GPT is responding"
+                      content="AI is responding"
                     />
                   ) : undefined
                 }
@@ -271,6 +279,7 @@ export default function ChatComponent({
                         <Message.CustomContent>
                           <ThinkingBlock
                             reasoning={msg.reasoning}
+                            visible={showReasoning}
                             isStreaming={false}
                           />
 
@@ -291,7 +300,7 @@ export default function ChatComponent({
                           sender={
                             isUser
                               ? "You"
-                              : "GPT"
+                              : "AI"
                           }
                           sentTime={date.fromNow()}
                         >
@@ -402,7 +411,7 @@ export default function ChatComponent({
                           name={
                             isUser
                               ? "User"
-                              : "GPT Assistant"
+                              : "AI Assistant"
                           }
                         />
                       </Message>
@@ -448,6 +457,7 @@ export default function ChatComponent({
                     <Message.CustomContent>
                       <ThinkingBlock
                         reasoning={stream.reasoning}
+                        visible={showReasoning}
                         isStreaming={isLoading}
                       />
 
@@ -466,7 +476,7 @@ export default function ChatComponent({
 
                     <Avatar
                       src={gptAvatarLogo}
-                      name="GPT Assistant"
+                      name="AI Assistant"
                     />
                   </Message>
                 )}
@@ -475,7 +485,7 @@ export default function ChatComponent({
               <MessageInput
                 placeholder={
                   activeChatId
-                    ? "Ask anything from GPT..."
+                    ? "Ask anything from AI..."
                     : "Create a new chat first..."
                 }
                 onSend={
@@ -495,28 +505,23 @@ export default function ChatComponent({
       <ChatControls
         engines={engines}
         activeEngine={activeEngine}
-        onEngineChange={
-          onEngineChange
-        }
-
-        systemPrompt={
-          systemPrompt
-        }
+        onEngineChange={onEngineChange}
+        systemPrompt={systemPrompt}
         onSystemPromptChange={
           onSystemPromptChange
         }
         onSystemPromptBlur={
           onSystemPromptBlur
         }
-
         mode={mode}
         act={act}
-
-        onModeChange={
-          onModeChange
-        }
-        onActChange={
-          onActChange
+        onModeChange={onModeChange}
+        onActChange={onActChange}
+        enableThinking={enableThinking}
+        showReasoning={showReasoning}
+        onThinkingChange={onThinkingChange}
+        onShowReasoningChange={
+          onShowReasoningChange
         }
       />
     </div>

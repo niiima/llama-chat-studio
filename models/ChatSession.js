@@ -81,6 +81,18 @@ const ChatSettingsSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    
+    // Whether the model should generate reasoning.
+    enableThinking: {
+      type: Boolean,
+      default: true,
+    },
+
+    // Whether saved reasoning should currently be visible in the UI.
+    showReasoning: {
+      type: Boolean,
+      default: true,
+    },
   },
   {
     _id: false,

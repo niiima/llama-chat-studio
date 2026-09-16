@@ -13,6 +13,7 @@ export default function useChat({
 }) {
   const {
     activeChatId,
+    activeChat,
     messages,
     saveMessage,
     setIsLoading,
@@ -29,6 +30,8 @@ export default function useChat({
    */
   const [stream, setStream] = useState(null);
 
+  const enableThinking =
+    activeChat?.settings?.enableThinking ?? true; 
   // ==========================================
   // SEND MESSAGE
   // ==========================================
@@ -171,7 +174,7 @@ export default function useChat({
               stream: true,
 
               chat_template_kwargs: {
-                enable_thinking: true,
+                enable_thinking: enableThinking,
               },
             }),
           }
@@ -392,16 +395,17 @@ export default function useChat({
       }
     },
 
-    [
-      activeChatId,
-      activeEngine,
-      systemPrompt,
-      AIstate,
-      messages,
-      saveMessage,
-      setIsLoading,
-      updateChatInList,
-    ]
+  [
+    activeChatId,
+    activeEngine,
+    systemPrompt,
+    AIstate,
+    messages,
+    saveMessage,
+    setIsLoading,
+    updateChatInList,
+    enableThinking,
+  ]
   );
 
   return {

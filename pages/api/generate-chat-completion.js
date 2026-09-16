@@ -47,7 +47,6 @@ const handler = async (req) => {
 
       chat_template_kwargs: {
         ...(body.chat_template_kwargs || {}),
-        enable_thinking: true,
       },
     };
 
