@@ -24,6 +24,11 @@ const MessageSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+
+    reasoning: {
+      type: String,
+      default: "",
+    },
   },
   {
     _id: true,

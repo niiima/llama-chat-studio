@@ -1,4 +1,9 @@
-import { useCallback, useContext, useState } from "react";
+import {
+  useCallback,
+  useContext,
+  useState,
+} from "react";
+
 import ChatContext from "../context/ChatContext";
 import AIContext from "../context/AIContext";
 
@@ -16,7 +21,13 @@ export default function useChat({
 
   const { AIstate } = useContext(AIContext);
 
-  const [stream, setStream] = useState("");
+  /*
+   * Temporary streaming assistant message.
+   *
+   * This is deliberately separate from ChatContext.messages.
+   * Nothing is persisted here until generation finishes.
+   */
+  const [stream, setStream] = useState(null);
 
   // ==========================================
   // SEND MESSAGE
@@ -39,7 +50,8 @@ export default function useChat({
       const userContent = content.trim();
 
       setIsLoading(true);
-      setStream("");
+
+      setStream(null);
 
       const settings = {
         systemPrompt: systemPrompt || "",
@@ -90,6 +102,7 @@ export default function useChat({
          * conversation plus the newly saved user message.
          *
          * IMPORTANT:
+         *
          * We don't use the React `messages` state here
          * after saveMessage because React state updates
          * asynchronously.
@@ -109,7 +122,8 @@ export default function useChat({
         if (settings.systemPrompt?.trim()) {
           generationMessages.push({
             role: "system",
-            content: settings.systemPrompt.trim(),
+            content:
+              settings.systemPrompt.trim(),
           });
         }
 
@@ -138,8 +152,11 @@ export default function useChat({
 
               messages: generationMessages,
 
-              temperature: settings.temperature,
+              temperature:
+                settings.temperature,
+
               top_p: settings.top_p,
+
               top_k: settings.top_k,
 
               frequency_penalty:
@@ -183,35 +200,152 @@ export default function useChat({
         const reader =
           response.body.getReader();
 
-        const decoder = new TextDecoder();
+        const decoder =
+          new TextDecoder();
 
-        let completion = "";
+        let reasoning = "";
+        let answer = "";
 
-        while (true) {
+        /*
+         * Because NDJSON records can theoretically
+         * be split across HTTP chunks, keep an
+         * incomplete line here.
+         */
+        let buffer = "";
+
+        let finished = false;
+
+        while (!finished) {
           const {
-            value,
             done,
+            value,
           } = await reader.read();
 
-          if (done) break;
+          if (done) {
+            break;
+          }
 
-          const chunk =
-            decoder.decode(value, {
-              stream: true,
-            });
+          buffer += decoder.decode(value, {
+            stream: true,
+          });
 
-          completion += chunk;
+          const lines =
+            buffer.split("\n");
 
-          setStream(completion);
+          /*
+           * The final item may be incomplete.
+           * Keep it for the next HTTP chunk.
+           */
+          buffer =
+            lines.pop() || "";
+
+          for (const line of lines) {
+            if (!line.trim()) {
+              continue;
+            }
+
+            let event;
+
+            try {
+              event = JSON.parse(line);
+            } catch (error) {
+              console.warn(
+                "Failed to parse stream event:",
+                line,
+                error
+              );
+
+              continue;
+            }
+
+            // ------------------------------------
+            // THINKING
+            // ------------------------------------
+
+            if (
+              event.type === "reasoning"
+            ) {
+              reasoning +=
+                event.content || "";
+
+              setStream({
+                reasoning,
+                content: answer,
+              });
+
+              continue;
+            }
+
+            // ------------------------------------
+            // FINAL ANSWER
+            // ------------------------------------
+
+            if (
+              event.type === "content"
+            ) {
+              answer +=
+                event.content || "";
+
+              setStream({
+                reasoning,
+                content: answer,
+              });
+
+              continue;
+            }
+
+            // ------------------------------------
+            // DONE
+            // ------------------------------------
+
+            if (
+              event.type === "done"
+            ) {
+              finished = true;
+              break;
+            }
+          }
         }
 
-        completion = completion.trim();
+        /*
+         * Process a final buffered record if there
+         * is one.
+         */
+        if (buffer.trim()) {
+          try {
+            const event =
+              JSON.parse(buffer);
 
-        if (!completion) {
-          throw new Error(
-            "The assistant returned an empty response"
-          );
+            if (
+              event.type === "reasoning"
+            ) {
+              reasoning +=
+                event.content || "";
+            }
+
+            if (
+              event.type === "content"
+            ) {
+              answer +=
+                event.content || "";
+            }
+          } catch (error) {
+            console.warn(
+              "Failed to parse final stream event:",
+              buffer,
+              error
+            );
+          }
         }
+
+        /*
+         * Make sure the final streamed state is
+         * visible before saving.
+         */
+        setStream({
+          reasoning,
+          content: answer,
+        });
 
         // ========================================
         // 5. SAVE ASSISTANT MESSAGE
@@ -220,18 +354,8 @@ export default function useChat({
         const assistantData =
           await saveMessage({
             role: "assistant",
-            content: completion,
-            timestamp:
-              new Date().toISOString(),
-
-            /*
-             * This is the important part:
-             *
-             * engine belongs ONLY to assistant messages.
-             *
-             * It records the engine that actually
-             * generated this response.
-             */
+            content: answer,
+            reasoning,
             engine: activeEngine.key,
           });
 
@@ -245,27 +369,29 @@ export default function useChat({
           );
         }
 
-        setStream("");
+        /*
+         * The persisted message is now in
+         * ChatContext.messages.
+         *
+         * Remove the temporary streaming message.
+         */
+        setStream(null);
 
-        return completion;
+        return assistantData;
       } catch (error) {
         console.error(
           "sendMessage:",
           error
         );
 
-        /*
-         * Keep the error visible in the console,
-         * but don't permanently leave streaming text
-         * in the UI.
-         */
-        setStream("");
+        setStream(null);
 
         throw error;
       } finally {
         setIsLoading(false);
       }
     },
+
     [
       activeChatId,
       activeEngine,

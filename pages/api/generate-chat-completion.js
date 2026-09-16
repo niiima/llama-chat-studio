@@ -5,45 +5,84 @@ export const config = {
 };
 
 const handler = async (req) => {
-  const body = await req.json();
-  
-  if (!body) {
-      return new Response(JSON.stringify({ error: "No body provided" }), {
-          headers: { "Content-Type": "application/json" },
-      });
+  if (req.method !== "POST") {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: "Method not allowed",
+      }),
+      {
+        status: 405,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
   }
-  
-  const { messages, ...rest } = body; // Destructure to separate messages array
 
+  try {
+    const body = await req.json();
 
-  // 2. Prepare Payload for AI call
-  const payload = {
-    messages: messages,
-    ...rest,
-    stream: true,
-    chat_template_kwargs: {
-      enable_thinking: true
+    if (!body) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "No body provided",
+        }),
+        {
+          status: 400,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
     }
-  };
 
-  // 3. Execute AI Streaming
-  const stream = await OpenAIChatStream(payload);
+    const { messages, ...rest } = body;
 
-  // We need to buffer the stream to get the final response for saving.
-  // Since we are streaming, we have to return the stream immediately for the UI,
-  // but we'll also read and save the content *during* the stream process if possible,
-  // or rely on the client to capture and send the final response to a new save endpoint.
-  // For simplicity in this first pass, we will focus on making the API call work,
-  // and then address saving the final response.
+    const payload = {
+      messages,
+      ...rest,
+      stream: true,
 
-  // For now, we return the stream as before, assuming the client will handle the final state.
-  // We will modify the client next to capture and send the final state.
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "no-cache",
-    },
-  });
+      chat_template_kwargs: {
+        ...(body.chat_template_kwargs || {}),
+        enable_thinking: true,
+      },
+    };
+
+    const stream = await OpenAIChatStream(payload);
+
+    return new Response(stream, {
+      status: 200,
+      headers: {
+        "Content-Type": "application/x-ndjson; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+      },
+    });
+  } catch (error) {
+    console.error(
+      "generate-chat-completion:",
+      error
+    );
+
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to generate completion",
+      }),
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+  }
 };
 
 export default handler;

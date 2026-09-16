@@ -28,6 +28,8 @@ import {
   gptAvatarLogo,
 } from "../model/icons";
 
+import ThinkingBlock from "./ThinkingBlock";
+
 const copyToClipboard = async (text) => {
   try {
     await navigator.clipboard.writeText(text);
@@ -243,7 +245,8 @@ export default function ChatComponent({
                       "user";
 
                     if (
-                      !msg.content
+                      !msg.content &&
+                      !msg.reasoning
                     ) {
                       return null;
                     }
@@ -255,41 +258,33 @@ export default function ChatComponent({
 
                     return (
                       <Message
-                        key={
-                          msg._id
-                        }
+                        key={msg._id || msg.id || index}
                         model={{
+                          message: msg.content,
                           direction:
-                            isUser
-                              ? "incoming"
-                              : "outgoing",
-
-                          position:
-                            "normal",
+                            msg.role === "assistant"
+                              ? "outgoing"
+                              : "incoming",
+                          position: "single",
                         }}
-                        avatarPosition="cl"
                       >
                         <Message.CustomContent>
-                          <Typography
-                            fontSize={1}
-                            fontWeight={
-                              isUser
-                                ? "normal"
-                                : "bold"
-                            }
-                          >
-                            {isUser ? (
-                              msg.content
-                            ) : isMarkdownFormatEnabled ? (
-                              <ReactMarkdown>
-                                {
-                                  msg.content
-                                }
-                              </ReactMarkdown>
-                            ) : (
-                              msg.content
-                            )}
-                          </Typography>
+                          <ThinkingBlock
+                            reasoning={msg.reasoning}
+                            isStreaming={false}
+                          />
+
+                          {msg.content && (
+                            <Typography fontWeight="bold">
+                              {isMarkdownFormatEnabled ? (
+                                <ReactMarkdown>
+                                  {msg.content}
+                                </ReactMarkdown>
+                              ) : (
+                                msg.content
+                              )}
+                            </Typography>
+                          )}
                         </Message.CustomContent>
 
                         <Message.Footer
@@ -442,31 +437,35 @@ export default function ChatComponent({
                   )}
 
                 {/* Streaming assistant */}
+                {/* Streaming assistant */}
                 {stream && (
                   <Message
                     model={{
-                      direction:
-                        "outgoing",
-                      position:
-                        "last",
+                      direction: "outgoing",
+                      position: "last",
                     }}
                   >
                     <Message.CustomContent>
-                      <Typography fontWeight="bold">
-                        {isMarkdownFormatEnabled ? (
-                          <ReactMarkdown>
-                            {stream}
-                          </ReactMarkdown>
-                        ) : (
-                          stream
-                        )}
-                      </Typography>
+                      <ThinkingBlock
+                        reasoning={stream.reasoning}
+                        isStreaming={isLoading}
+                      />
+
+                      {stream.content && (
+                        <Typography fontWeight="bold">
+                          {isMarkdownFormatEnabled ? (
+                            <ReactMarkdown>
+                              {stream.content}
+                            </ReactMarkdown>
+                          ) : (
+                            stream.content
+                          )}
+                        </Typography>
+                      )}
                     </Message.CustomContent>
 
                     <Avatar
-                      src={
-                        gptAvatarLogo
-                      }
+                      src={gptAvatarLogo}
                       name="GPT Assistant"
                     />
                   </Message>

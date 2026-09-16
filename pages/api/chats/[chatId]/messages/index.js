@@ -54,6 +54,7 @@ export default async function handler(req, res) {
         content,
         timestamp,
         engine,
+        reasoning,
       } = req.body || {};
 
       if (!role || !content) {
@@ -106,10 +107,14 @@ export default async function handler(req, res) {
       chat.messages.push({
         role,
         content,
+        reasoning:
+          role === "assistant"
+            ? reasoning || ""
+            : "",
         timestamp: timestamp || new Date(),
         engine:
           role === "assistant"
-            ? engine.trim()
+            ? engine || null
             : null,
       });
 

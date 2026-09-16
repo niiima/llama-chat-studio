@@ -4,43 +4,68 @@ export async function OpenAIChatStream(payload) {
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
 
-  console.log("OpenAIChatStream payload:", payload);
+  const body = {
+    ...payload,
+    stream: true,
+  };
 
-  const response = await fetch(
+  const res = await fetch(
     `${process.env.LLAMA_CPP_URL}/v1/chat/completions`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        ...payload,
-        stream: true,
-      }),
+      body: JSON.stringify(body),
     }
   );
 
-  if (!response.ok) {
-    const errorText = await response.text();
-
-    console.error(
-      "llama.cpp error:",
-      response.status,
-      errorText
-    );
+  if (!res.ok) {
+    const errorText = await res.text();
 
     throw new Error(
-      `llama.cpp returned ${response.status}: ${errorText}`
+      `llama.cpp request failed (${res.status}): ${errorText}`
     );
   }
 
-  if (!response.body) {
-    throw new Error("llama.cpp returned no response body");
+  if (!res.body) {
+    throw new Error(
+      "llama.cpp response has no body"
+    );
   }
 
   return new ReadableStream({
     async start(controller) {
-      const parser = createParser((event) => {
+      let closed = false;
+
+      const closeController = () => {
+        if (!closed) {
+          closed = true;
+          controller.close();
+        }
+      };
+
+      const errorController = (error) => {
+        if (!closed) {
+          closed = true;
+          controller.error(error);
+        }
+      };
+
+      const emit = (type, content = "") => {
+        if (closed) return;
+
+        controller.enqueue(
+          encoder.encode(
+            JSON.stringify({
+              type,
+              content,
+            }) + "\n"
+          )
+        );
+      };
+
+      function onParse(event) {
         if (event.type !== "event") {
           return;
         }
@@ -48,34 +73,64 @@ export async function OpenAIChatStream(payload) {
         const data = event.data;
 
         if (data === "[DONE]") {
-          controller.close();
+          emit("done");
+          closeController();
           return;
         }
 
         try {
           const json = JSON.parse(data);
+          const delta = json.choices?.[0]?.delta;
 
-          const content =
-            json.choices?.[0]?.delta?.content;
+          if (!delta) {
+            return;
+          }
 
-          if (content) {
-            controller.enqueue(
-              encoder.encode(content)
+          /*
+           * llama.cpp with:
+           *
+           *   --reasoning-format deepseek
+           *
+           * separates model output into:
+           *
+           *   delta.reasoning_content
+           *   delta.content
+           *
+           * We deliberately keep these separate.
+           */
+
+          if (delta.reasoning_content) {
+            emit(
+              "reasoning",
+              delta.reasoning_content
+            );
+          }
+
+          if (delta.content) {
+            emit(
+              "content",
+              delta.content
             );
           }
         } catch (error) {
           console.error(
-            "Error parsing llama.cpp stream:",
+            "Failed to parse llama.cpp stream chunk:",
             error,
             data
           );
 
-          controller.error(error);
+          errorController(error);
         }
-      });
+      }
+
+      const parser = createParser(onParse);
 
       try {
-        for await (const chunk of response.body) {
+        for await (const chunk of res.body) {
+          if (closed) {
+            break;
+          }
+
           parser.feed(
             decoder.decode(chunk, {
               stream: true,
@@ -83,16 +138,32 @@ export async function OpenAIChatStream(payload) {
           );
         }
 
-        // Flush any incomplete UTF-8 sequence.
-        parser.feed(decoder.decode());
+        if (!closed) {
+          const remaining = decoder.decode();
 
+          if (remaining) {
+            parser.feed(remaining);
+          }
+        }
+
+        /*
+         * Normally llama.cpp sends [DONE], which closes
+         * the stream above.
+         *
+         * If the connection simply ends without [DONE],
+         * make sure the browser still receives a final event.
+         */
+        if (!closed) {
+          emit("done");
+          closeController();
+        }
       } catch (error) {
         console.error(
-          "llama.cpp stream error:",
+          "llama.cpp streaming error:",
           error
         );
 
-        controller.error(error);
+        errorController(error);
       }
     },
   });

@@ -248,6 +248,7 @@ export function ChatProvider({ children }) {
       role,
       content,
       timestamp,
+      reasoning = "",
       engine,
     }) => {
       if (!activeChatId) {
@@ -259,6 +260,10 @@ export function ChatProvider({ children }) {
         content,
         timestamp:
           timestamp || new Date().toISOString(),
+        reasoning:
+          role === "assistant"
+            ? reasoning
+            : "",
       };
 
       /*
