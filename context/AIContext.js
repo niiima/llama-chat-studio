@@ -1,4 +1,9 @@
-import { createContext, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useMemo,
+  useState,
+} from "react";
 
 import {
   AISettings,
@@ -19,22 +24,40 @@ export function AIProvider({ children }) {
 
   const [activeRoute, setActiveRoute] = useState(0);
 
-  const setAIState = (newState) => {
-    setState((prev) => ({
-      ...prev,
-      ...newState,
-    }));
-  };
+  /**
+   * Update AI settings without replacing the whole state.
+   *
+   * Supports both:
+   *   setAIState({ temperature: 0.7 })
+   *
+   * and:
+   *   setAIState((previous) => ({ ...previous, ... }))
+   */
+  const setAIState = useCallback((newState) => {
+    setState((previous) => {
+      const patch =
+        typeof newState === "function"
+          ? newState(previous)
+          : newState;
 
-  const changeEngine = (engine) => {
+      return {
+        ...previous,
+        ...patch,
+      };
+    });
+  }, []);
+
+  /**
+   * Change the active model and reset generation
+   * parameters to that model's defaults.
+   */
+  const changeEngine = useCallback((engine) => {
+    if (!engine) return;
+
     setActiveEngine(engine);
 
-    /*
-     * Reset the AI settings to the new engine's defaults.
-     */
-
-    setState((prev) => ({
-      ...prev,
+    setState((previous) => ({
+      ...previous,
 
       max_tokens:
         engine.maxTokens ??
@@ -71,22 +94,29 @@ export function AIProvider({ children }) {
         AISettings.presence_penalty ??
         0,
     }));
-  };
+  }, []);
+
+  const contextValue = useMemo(
+    () => ({
+      AIstate,
+      setAIState,
+      activeEngine,
+      setActiveEngine,
+      changeEngine,
+      activeRoute,
+      setActiveRoute,
+    }),
+    [
+      AIstate,
+      setAIState,
+      activeEngine,
+      changeEngine,
+      activeRoute,
+    ]
+  );
 
   return (
-    <AIContext.Provider
-      value={{
-        AIstate,
-        setAIState,
-
-        activeEngine,
-        setActiveEngine,
-        changeEngine,
-
-        activeRoute,
-        setActiveRoute,
-      }}
-    >
+    <AIContext.Provider value={contextValue}>
       {children}
     </AIContext.Provider>
   );

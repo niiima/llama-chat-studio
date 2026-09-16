@@ -287,28 +287,38 @@ export default function MyPage() {
       <main
         style={{
           height: "92svh",
-          marginLeft: asideExpanded ? "20em" : 0,
-          transition: "margin-left 0.25s ease",
+          marginLeft: asideExpanded
+            ? "20em"
+            : 0,
+          transition:
+            "margin-left 0.25s ease",
           position: "relative",
           display: "flex",
           flexDirection: "column",
+          minHeight: 0,
         }}
       >
         <ChatComponent
           handleSendMessage={handleSubmit}
           stream={stream}
           prompt=""
-          isLoadingConversation={isLoadingConversation}
-        />
+          isLoadingConversation={
+            isLoadingConversation
+          }
 
-        <ChatControls
           engines={engines}
           activeEngine={activeEngine}
-          onEngineChange={handleEngineChange}
+          onEngineChange={
+            handleEngineChange
+          }
 
           systemPrompt={systemPrompt}
-          onSystemPromptChange={setSystemPrompt}
-          onSystemPromptBlur={handleSystemPromptBlur}
+          onSystemPromptChange={
+            setSystemPrompt
+          }
+          onSystemPromptBlur={
+            handleSystemPromptBlur
+          }
 
           mode={AIstate.mode}
           act={AIstate.act}
