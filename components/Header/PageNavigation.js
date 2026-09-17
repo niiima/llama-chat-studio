@@ -1,36 +1,74 @@
-import { MdAirlineStops, MdMultipleStop } from "react-icons/md";
+import { MdMultipleStop } from "react-icons/md";
 import { useContext } from "react";
-import { Flex } from "../Atoms/Flex";
-import { FlexItem } from "../Atoms/FlexItem";
-// import { GiAbstract037 } from "react-icons/gi";
+
 import styled from "styled-components";
 import Link from "next/link";
-import AIContext from "../../context/AIContext";
-// import { FcPicture } from "react-icons/fc";
-// import { BsSpotify } from "react-icons/bs";
-// import { VscGithubAction } from "react-icons/vsc";
 
-const ICON_SIZE = 26;
-const NavigationWrapper = styled(Flex)`
+import AIContext from "../../context/AIContext";
+
+const ICON_SIZE = 17;
+
+const NavigationWrapper = styled.nav`
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0 1rem;
+
+  height: 100%;
+
+  padding: 0 4px;
 `;
 
-const LinkItem = styled(FlexItem)`
-  font-size: 14px;
-  color: #ccc;
-  text-decoration: none;
-  transition: color 0.2s;
+const LinkItem = styled.div`
+  height: 34px;
+
+  display: flex;
+  align-items: center;
+
+  border-radius: 7px;
+
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+
+  a {
+    height: 100%;
+
+    display: flex;
+    align-items: center;
+    gap: 7px;
+
+    padding: 0 10px;
+
+    box-sizing: border-box;
+
+    color: #9ca3af;
+
+    text-decoration: none;
+
+    font-size: 0.75rem;
+    font-weight: 500;
+
+    transition: color 0.15s ease;
+  }
 
   &:hover {
-    color: white;
+    background: #1f2937;
+
+    a {
+      color: #f3f4f6;
+    }
   }
 
   &.active {
-    color: white;
-    font-weight: 600;
+    background: #1f2937;
+
+    a {
+      color: #f3f4f6;
+      font-weight: 600;
+    }
+
+    svg {
+      color: #93c5fd;
+    }
   }
 `;
 
@@ -44,30 +82,39 @@ const routes = [
 ];
 
 const PageNavigation = () => {
-  const { activeRoute, setActiveRoute } = useContext(AIContext);
+  const {
+    activeRoute,
+    setActiveRoute,
+  } = useContext(AIContext);
 
   return (
     <NavigationWrapper>
       {routes.map((route) => (
         <LinkItem
           key={route.url}
-          className={`${activeRoute === route.id ? "active" : ""}`}
+          className={
+            activeRoute === route.id
+              ? "active"
+              : ""
+          }
         >
           <Link
             href={route.url}
-            onClick={(e) => {
-              e.preventDefault();
+            onClick={(event) => {
+              if (route.url === "/") {
+                event.preventDefault();
+              }
+
               setActiveRoute(route.id);
             }}
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', color: 'inherit' }}
           >
             {route.icon}
-            <span className="text-container">{route.text}</span>
+            <span>{route.text}</span>
           </Link>
         </LinkItem>
       ))}
     </NavigationWrapper>
   );
 };
-export default PageNavigation;
 
+export default PageNavigation;

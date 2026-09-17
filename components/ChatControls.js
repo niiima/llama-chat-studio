@@ -16,11 +16,13 @@ const Wrapper = styled.div`
   width: 100%;
   flex-shrink: 0;
 
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  border-top: 1px solid #374151;
 
-  background: rgba(255, 255, 255, 0.96);
+  background: #111827;
 
   backdrop-filter: blur(12px);
+
+  color: #f3f4f6;
 `;
 
 const Toolbar = styled.div`
@@ -34,19 +36,26 @@ const Toolbar = styled.div`
   padding: 5px 10px;
 
   overflow-x: auto;
+
+  color: #f3f4f6;
 `;
 
 const Control = styled.div`
   display: flex;
   align-items: center;
+
   gap: 5px;
 
   min-width: 0;
+
+  color: #f3f4f6;
 `;
 
 const Label = styled.span`
   font-size: 0.66rem;
-  opacity: 0.55;
+
+  color: #9ca3af;
+
   white-space: nowrap;
 `;
 
@@ -56,24 +65,31 @@ const SelectWrapper = styled.div`
   display: inline-flex;
   align-items: center;
 
+  color: #f9fafb;
+
   svg {
     position: absolute;
+
     right: 6px;
+
     pointer-events: none;
-    opacity: 0.45;
+
+    color: #9ca3af;
+
+    opacity: 1;
   }
 `;
 
 const Select = styled.select`
   appearance: none;
 
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border: 1px solid #374151;
 
   border-radius: 7px;
 
-  background: rgba(255, 255, 255, 0.9);
+  background: #1f2937;
 
-  color: inherit;
+  color: #f9fafb;
 
   padding: 6px 25px 6px 8px;
 
@@ -85,12 +101,24 @@ const Select = styled.select`
 
   max-width: 220px;
 
+  color-scheme: dark;
+
   &:hover {
-    border-color: rgba(100, 80, 220, 0.3);
+    border-color: #4b5563;
+
+    background: #273449;
   }
 
   &:focus {
-    border-color: rgba(100, 80, 220, 0.55);
+    border-color: #60a5fa;
+
+    box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.2);
+  }
+
+  option {
+    background: #1f2937;
+
+    color: #f9fafb;
   }
 `;
 
@@ -99,6 +127,7 @@ const IconButton = styled.button`
   height: 32px;
 
   display: inline-flex;
+
   align-items: center;
   justify-content: center;
 
@@ -109,29 +138,39 @@ const IconButton = styled.button`
   border: 1px solid
     ${({ active }) =>
       active
-        ? "rgba(100,80,220,.4)"
-        : "rgba(0,0,0,.12)"};
+        ? "#60a5fa"
+        : "#374151"};
 
   background: ${({ active }) =>
     active
-      ? "rgba(100,80,220,.1)"
-      : "transparent"};
+      ? "rgba(96, 165, 250, 0.12)"
+      : "#1f2937"};
 
-  color: inherit;
+  color: #f3f4f6;
 
   cursor: pointer;
 
   transition:
     background 0.15s ease,
-    border-color 0.15s ease;
+    border-color 0.15s ease,
+    color 0.15s ease;
 
   &:hover {
-    background: rgba(100, 80, 220, 0.08);
+    background: #273449;
+
+    border-color: #4b5563;
+
+    color: #ffffff;
+  }
+
+  svg {
+    color: currentColor;
   }
 `;
 
 const Spacer = styled.div`
   flex: 1;
+
   min-width: 5px;
 `;
 
@@ -139,7 +178,7 @@ const SettingsPanel = styled.div`
   overflow: hidden;
 
   max-height: ${({ open }) =>
-    open ? "600px" : "0px"};
+    open ? "900px" : "0px"};
 
   opacity: ${({ open }) =>
     open ? 1 : 0};
@@ -150,16 +189,23 @@ const SettingsPanel = styled.div`
 
   border-top: ${({ open }) =>
     open
-      ? "1px solid rgba(0,0,0,.06)"
+      ? "1px solid #374151"
       : "none"};
+
+  background: #111827;
+
+  color: #f3f4f6;
 `;
 
 const SettingsInner = styled.div`
-  padding: 8px 10px 12px;
+  padding: 10px 10px 14px;
+
+  color: #f3f4f6;
 `;
 
 const SettingsTitle = styled.div`
   display: flex;
+
   align-items: center;
 
   gap: 6px;
@@ -170,7 +216,11 @@ const SettingsTitle = styled.div`
 
   font-weight: 600;
 
-  opacity: 0.65;
+  color: #d1d5db;
+
+  svg {
+    color: #9ca3af;
+  }
 `;
 
 const Prompt = styled.textarea`
@@ -182,7 +232,7 @@ const Prompt = styled.textarea`
 
   resize: vertical;
 
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border: 1px solid #374151;
 
   border-radius: 7px;
 
@@ -196,67 +246,128 @@ const Prompt = styled.textarea`
 
   outline: none;
 
-  background: white;
+  background: #1f2937;
 
-  color: inherit;
+  color: #f9fafb;
+
+  caret-color: #f9fafb;
+
+  color-scheme: dark;
+
+  &::placeholder {
+    color: #6b7280;
+
+    opacity: 1;
+  }
+
+  &:hover {
+    border-color: #4b5563;
+  }
 
   &:focus {
-    border-color: rgba(100, 80, 220, 0.5);
+    border-color: #60a5fa;
+
+    box-shadow:
+      0 0 0 1px
+      rgba(96, 165, 250, 0.2);
   }
 `;
 
 const Field = styled.div`
   min-width: 0;
+
+  color: #f3f4f6;
 `;
 
 const FieldLabel = styled.div`
   font-size: 0.65rem;
 
-  opacity: 0.55;
+  color: #9ca3af;
 
   margin-bottom: 3px;
 `;
 
 const Toggle = styled.button`
   display: inline-flex;
+
   align-items: center;
+
   gap: 7px;
+
   border: 0;
+
   background: transparent;
-  color: inherit;
+
+  color: #e5e7eb;
+
   padding: 3px 0;
+
   cursor: pointer;
+
   font: inherit;
+
+  user-select: none;
+
+  &:hover {
+    color: #ffffff;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+  }
 `;
 
 const ToggleTrack = styled.span`
   position: relative;
+
   width: 30px;
   height: 17px;
+
+  flex-shrink: 0;
+
   border-radius: 999px;
+
   background: ${({ active }) =>
     active
-      ? "rgba(100, 80, 220, 0.65)"
-      : "rgba(0, 0, 0, 0.16)"};
-  transition: background 0.15s ease;
+      ? "#3b82f6"
+      : "#4b5563"};
+
+  box-shadow:
+    inset 0 0 0 1px
+    rgba(255, 255, 255, 0.08);
+
+  transition:
+    background 0.15s ease;
 `;
 
 const ToggleThumb = styled.span`
   position: absolute;
+
   top: 2px;
+
   left: ${({ active }) =>
     active ? "15px" : "2px"};
+
   width: 13px;
   height: 13px;
+
   border-radius: 50%;
-  background: white;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-  transition: left 0.15s ease;
+
+  background: #ffffff;
+
+  box-shadow:
+    0 1px 3px
+    rgba(0, 0, 0, 0.4);
+
+  transition:
+    left 0.15s ease;
 `;
 
 const ToggleLabel = styled.span`
   font-size: 0.72rem;
-  opacity: 0.7;
+
+  color: #d1d5db;
+
   white-space: nowrap;
 `;
 
@@ -303,16 +414,16 @@ const ToggleLabel = styled.span`
 
 function BooleanControl({
   label,
-  value = false,
+  value = false,  
   onChange,
   disabled = false,
 }) {
   const handleClick = () => {
-    console.log(`[BooleanControl] ${label}:`, {
-      value,
-      hasOnChange: typeof onChange === "function",
-      disabled,
-    });
+    // console.log(`[BooleanControl] ${label}:`, {
+    //   value,
+    //   hasOnChange: typeof onChange === "function",
+    //   disabled,
+    // });
 
     if (disabled || typeof onChange !== "function") {
       return;

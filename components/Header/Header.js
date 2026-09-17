@@ -1,42 +1,85 @@
 import { useContext } from "react";
 import styled from "styled-components";
 
-// import SvgSettingButton from "../svgs/SvgSettingButton";
 import PageNavigation from "./PageNavigation";
-// import LogoDropSvg from "../svgs/LogoDropSvg";
 import HamburgerIcon from "../HamburgerIcon/HamburgerIcon";
+
 import UIContext from "../../context/UIContext.js";
 
 export const HeaderBar = styled.header`
-  display: flex;
-  flex-direction: row;
-  justify-content: space-between;
-  align-items: middle;
-  background: #111111;
-  border-bottom: 1px solid #222;
-  height: 8 svh;
+  position: fixed;
+
+  top: 0;
+  left: 0;
+  right: 0;
+
+  z-index: 200;
+
   width: 100%;
-  padding: 0 0.1;
+  height: 56px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  box-sizing: border-box;
+
+  padding: 0 10px;
+
+  background: #111827;
+  color: #f3f4f6;
+
+  border-bottom: 1px solid #374151;
+`;
+
+const LeftSection = styled.div`
+  display: flex;
+  align-items: center;
+
+  min-width: 0;
+  height: 100%;
+
+  gap: 9px;
+`;
+
+const RightSection = styled.div`
+  display: flex;
+  align-items: center;
+
+  height: 100%;
+`;
+
+const Divider = styled.div`
+  width: 1px;
+  height: 22px;
+
+  margin: 0 2px;
+
+  background: #374151;
 `;
 
 const Header = ({ children }) => {
-  const { asideExpanded, setAsideExpand } = useContext(UIContext);
+  const {
+    asideExpanded,
+    setAsideExpand,
+  } = useContext(UIContext);
 
   return (
     <HeaderBar>
-      {/* HamburgerIcon is now first, so it appears on the left */}
-      <HamburgerIcon
-        color='white'
-        background='white'
-        open={asideExpanded}
-        handleClick={setAsideExpand}
-      />
-      
-      {/* The content div is now second, so it appears on the right */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
+      <LeftSection>
+        <HamburgerIcon
+          open={asideExpanded}
+          handleClick={setAsideExpand}
+        />
+
+        <Divider />
+
         {children}
+      </LeftSection>
+
+      <RightSection>
         <PageNavigation />
-      </div>
+      </RightSection>
     </HeaderBar>
   );
 };

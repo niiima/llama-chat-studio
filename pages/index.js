@@ -21,8 +21,6 @@ import Header from "../components/Header/Header.js";
 
 import useChat from "../hooks/useChat";
 
-import ChatControls from "../components/ChatControls";
-
 export default function MyPage() {
   const {
     asideExpanded,
@@ -288,20 +286,7 @@ export default function MyPage() {
           showReasoning: value,
         });
 
-      // console.log(
-      //   ">>> updated chat settings:",
-      //   updatedChat?.settings
-      // );
 
-      // console.log(
-      //   ">>> enableThinking:",
-      //   updatedChat?.settings?.enableThinking
-      // );
-
-      // console.log(
-      //   ">>> showReasoning:",
-      //   updatedChat?.settings?.showReasoning
-      // );
     } catch (error) {
       console.error(
         "Failed to update reasoning visibility:",
@@ -367,79 +352,85 @@ export default function MyPage() {
   // RENDER
   // ==========================================
 
-  return (
-    <>
-      <Head>
-        <title>AI Assistant</title>
-      </Head>
+return (
+  <>
+    <Head>
+      <title>AI Assistant</title>
+    </Head>
 
-      <Header />
+    <Header />
 
-      <Sidebar show={asideExpanded}>
-        <ConversationList
-          chats={chats}
-          activeChatId={activeChatId}
-          loading={isLoadingChats}
-          onNewChat={handleNewChat}
-          onSelectChat={selectChat}
-          onDeleteChat={deleteChat}
-        />
-      </Sidebar>
+    <Sidebar show={asideExpanded}>
+      <ConversationList
+        chats={chats}
+        activeChatId={activeChatId}
+        loading={isLoadingChats}
+        onNewChat={handleNewChat}
+        onSelectChat={selectChat}
+        onDeleteChat={deleteChat}
+      />
+    </Sidebar>
 
-      <main
-        style={{
-          height: "92svh",
-          marginLeft: asideExpanded
-            ? "20em"
-            : 0,
-          transition:
-            "margin-left 0.25s ease",
-          position: "relative",
-          display: "flex",
-          flexDirection: "column",
-          minHeight: 0,
-        }}
-      >
-        <ChatComponent
-          handleSendMessage={handleSubmit}
-          stream={stream}
-          prompt=""
-          isLoadingConversation={
-            isLoadingConversation
-          }
+    <main
+      style={{
+        position: "fixed",
 
-          engines={engines}
-          activeEngine={activeEngine}
-          onEngineChange={
-            handleEngineChange
-          }
+        top: "56px",
+        right: 0,
+        bottom: 0,
 
-          systemPrompt={systemPrompt}
-          onSystemPromptChange={
-            setSystemPrompt
-          }
-          onSystemPromptBlur={
-            handleSystemPromptBlur
-          }
+        left: asideExpanded
+          ? "300px"
+          : "0px",
 
-          mode={AIstate.mode}
-          act={AIstate.act}
+        transition: "left 0.25s ease",
 
-          onModeChange={handleModeChange}
-          onActChange={handleActChange}
+        display: "flex",
+        flexDirection: "column",
 
-          enableThinking={
-            activeChat?.settings?.enableThinking ?? true
-          }
-          // showReasoning={
-          //   activeChat?.settings?.showReasoning ?? true
-          // }
-          onThinkingChange={handleThinkingChange}
-          onShowReasoningChange={
-            handleShowReasoningChange
-          }
-        />
-      </main>
-    </>
-  );
+        minWidth: 0,
+        minHeight: 0,
+
+        overflow: "hidden",
+
+        background: "#0f172a",
+      }}
+    >
+      <ChatComponent
+        handleSendMessage={handleSubmit}
+        stream={stream}
+        prompt=""
+        isLoadingConversation={
+          isLoadingConversation
+        }
+        engines={engines}
+        activeEngine={activeEngine}
+        onEngineChange={
+          handleEngineChange
+        }
+        systemPrompt={systemPrompt}
+        onSystemPromptChange={
+          setSystemPrompt
+        }
+        onSystemPromptBlur={
+          handleSystemPromptBlur
+        }
+        mode={AIstate.mode}
+        act={AIstate.act}
+        onModeChange={handleModeChange}
+        onActChange={handleActChange}
+        enableThinking={
+          activeChat?.settings?.enableThinking ??
+          true
+        }
+        onThinkingChange={
+          handleThinkingChange
+        }
+        onShowReasoningChange={
+          handleShowReasoningChange
+        }
+      />
+    </main>
+  </>
+);
 }

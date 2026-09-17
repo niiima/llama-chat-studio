@@ -16,12 +16,14 @@ const GlobalStyles = createGlobalStyle`
 }
 
 
-html, body, #root {
-    height: '100%';
-    width: '100%'; 
-    margin: 0;
-    padding: 0;
-  }
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
 
 body{
   margin: 0;
@@ -48,54 +50,21 @@ body{
   justify-content: center;
 }
 
-/* .cs-main-container{
-  background-color: black ;
-} */
-
-.cs-chat-container .cs-message-input{
-background-color:#222 ;
-}
-/* .cs-main-container .cs-chat-container{
-  background-color:red !important ;
-} */
-
-.cs-main-container .cs-chat-container{
-  background-color:transparent ;
+.cs-main-container,
+.cs-chat-container {
+  background: transparent !important;
+  border: none !important;
 }
 
-.scrollbar-container{
-  background-color:#222;
+.cs-message-list {
+  background: transparent !important;
 }
 
-.cs-message__custom-content *{
-  /* line-height:1em; */
-  /* padding:0; */
-  margin:2px;
+.cs-message__custom-content > * {
+  margin-top: 2px;
+  margin-bottom: 2px;
 }
 
-/* .cs-message--incoming .cs-message__content{
-  background-color:#f6d365 !important;
-} */
-
-.cs-message--outgoing .cs-message__content{
-  /* background-color:rgba(61,153,251,1) !important; */
-  background: linear-gradient(320deg, #11e7df 0%, #39f 50%, #b490ca 100%);
-
-  /* color:#333; */
-}
-
-.cs-message-list__typing-indicator-container .cs-typing-indicator{
-  background-color:#222;
-  color:skyblue;
-  font-size:1.1em ;
-}
-
-/* .cs-message--outgoing .cs-message__avatar{
-  margin: -4px 5px 0 8px !important;
-}
-.cs-message--incoming .cs-message__avatar{
-  margin: -4px 5px 0 8px !important;
-} */
 .scroll-customized::-webkit-scrollbar-track {
     -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
     background: linear-gradient(320deg, #11e7df 0%, #39f 50%, #b490ca 100%);
